@@ -36,20 +36,14 @@ handle_info(Request, State) ->
     ?log(7, "~w unknown info: ~9999p", [?MODULE, Request]),
     {noreply, State}.
 
+handle_call({request, Data}, From, State) ->
+    ?log(30, "~w got request: ~9999p", [?MODULE, Data]),
+    spawn_link(fun() -> gen_server:reply(From, handle_data(Data)) end),
+    {noreply, State};
 handle_call(Request, From, State) ->
-    case Request of
-        {request, Data} ->
-            ?log(30, "~w got request: ~9999p", [?MODULE, Data]),
-            spawn_link(
-              fun() ->
-                      gen_server:reply(From, handle_data(Data))
-              end),
-            {noreply, State};
-        _ ->
-            ?log(7, "~w unknown call ~9999p from ~9999p",
-                 [?MODULE, Request, From]),
-            {noreply, State}
-    end.
+    ?log(7, "~w unknown call ~9999p from ~9999p",
+         [?MODULE, Request, From]),
+    {noreply, State}.
 
 handle_cast(Request, State) ->
     ?log(7, "~w unknown cast: ~9999p", [?MODULE, Request]),
