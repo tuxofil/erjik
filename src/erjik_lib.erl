@@ -6,9 +6,7 @@
 -module(erjik_lib).
 
 -export(
-   [consultr/1,
-    unconsult/2,
-    is_string/1,
+   [is_string/1,
     is_ip/1,
     is_ipv4/1,
     is_ipv6/1,
@@ -22,37 +20,6 @@
 %% --------------------------------------------------------------------
 %% API functions
 %% --------------------------------------------------------------------
-
-%% @doc Consult with includes.
-%%      Include applyed if term is of {include, Wildcard}.
-%% @spec consultr(Wildcard) -> {ok, Terms}
-%%     Wildcard = string(),
-%%     Terms = [term()]
-consultr(Wildcard) ->
-    {ok,
-     lists:flatmap(
-       fun(F) ->
-               case filelib:is_regular(F) of
-                   true ->
-                       {ok, Terms} = file:consult(F),
-                       lists:flatmap(
-                         fun({include, F2}) when is_list(F2) ->
-                                 {ok, Trms} =
-                                     consultr(
-                                       filename:join(
-                                         [filename:dirname(F), F2])),
-                                 Trms;
-                            (T) ->
-                                 [T]
-                         end, Terms);
-                   _ ->
-                       []
-               end
-       end, filelib:wildcard(Wildcard))}.
-
-unconsult(Filename, Terms) ->
-    file:write_file(
-      Filename, [io_lib:format("~p.~n", [T]) || T <- Terms]).
 
 is_string(Term) when is_list(Term) ->
     lists:all(

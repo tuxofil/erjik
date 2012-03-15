@@ -131,7 +131,7 @@ do_get(Key, Default) ->
 %%     Reason = term()
 do_reconfig() ->
     try
-        {ok, Terms} = erjik_lib:consultr(filename()),
+        {ok, Terms} = file:consult(filename()),
         ets:delete_all_objects(?FAC_MAIN_CONF),
         lists:foreach(
           fun({Key, Value} = X) when is_atom(Key) ->
