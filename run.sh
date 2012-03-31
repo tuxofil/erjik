@@ -1,8 +1,10 @@
 #!/bin/sh
 
-erl \
+exec erl \
+    -sname "erjik" \
+    -setcookie "erjik_secret_cookie" \
     -noshell \
-    -s erjik \
-    -s erjik redirector \
-    -s init stop
+    -pa ./ebin \
+    -erjik_config "./erjik.conf" \
+    -s erjik
 

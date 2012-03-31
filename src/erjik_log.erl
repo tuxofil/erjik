@@ -1,16 +1,20 @@
 %%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
 %%% @since 7 Mar 2009
-%%% @copyright 2009, Aleksey Morarash
+%%% @copyright 2009-2012, Aleksey Morarash
 %%% @doc Logger process
 
 -module(erjik_log).
 
 -behaviour(gen_server).
 
-%% API functions
--export([start_link/0, reconfig/0, log/3, log/2, error/2]).
+%% API exports
+-export(
+   [start_link/0,
+    hup/0,
+    log/3
+   ]).
 
-%% Callback functions
+%% gen_server callback exports
 -export([init/1, handle_call/3, handle_info/2, handle_cast/2,
          terminate/2, code_change/3]).
 
@@ -20,154 +24,116 @@
 %% API functions
 %% --------------------------------------------------------------------
 
+%% @doc Start logger process as part of supervision tree.
+%% @spec start_link() -> {ok, pid()}
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
-reconfig() ->
-    gen_server:call(?MODULE, reconfig).
+%% @doc Sends signal to logger process to reopen log file and
+%%      reread its configurations.
+%% @spec hup() -> ok
+hup() ->
+    gen_server:cast(?MODULE, ?SIG_RECONFIG).
 
-log(LogLevel, Format, Args)
-  when is_integer(LogLevel), is_list(Format), is_list(Args) ->
-    catch ?MODULE ! {log, LogLevel, Format, Args},
+%% @doc Sends message to logger process.
+%% @spec log(Severity, Format, Args) -> ok
+%%     Severity = 1 | 2 | 3 | 4,
+%%     Format = string(),
+%%     Args = list()
+log(Severity, Format, Args) ->
+    catch ?MODULE ! {msg, now(), Severity, Format, Args},
     ok.
 
-log(Format, Args)
-  when is_list(Format), is_list(Args) ->
-    catch ?MODULE ! {log, Format, Args},
-    ok.
+%% ----------------------------------------------------------------------
+%% gen_server callbacks
+%% ----------------------------------------------------------------------
 
-error(Format, Args) when is_list(Format), is_list(Args) ->
-    io:format(
-      erjik_lib:timestamp(now()) ++
-          " ERROR: " ++ Format ++ "~n", Args).
+%% state record
+-record(state, {loglevel = ?LOGLEVEL_INFO, handle}).
 
-%% --------------------------------------------------------------------
-%% Callback functions
-%% --------------------------------------------------------------------
-
--define(FILE_OPTS, [raw, append]).
-
-%% server state record
--record(state,
-        {loglevel,
-         logfile,
-         handle}).
-
-init(_Init) ->
+%% @hidden
+init(_Args) ->
+    %% trap exits for correct file close on termination
     process_flag(trap_exit, true),
-    case do_reconfig() of
-        {ok, State} = Ok ->
-            do_log(State#state.loglevel, 10, State#state.handle,
-                   "~w: started", [?MODULE]),
-            erjik_cfg ! logready,
-            Ok;
-        Error ->
-            Error
-    end.
+    hup(),
+    {ok, #state{}}.
 
-handle_info(Request, State) ->
-    LL = State#state.loglevel,
-    Hn = State#state.handle,
-    case Request of
-        {log, MLL, Format, Args} ->
-            do_log(LL, 50, Hn, "~w: received message: ~9999p",
-                   [?MODULE, {MLL, Format, Args}]),
-            do_log(LL, MLL, Hn, Format, Args),
-            {noreply, State};
-        {log, Format, Args} when is_list(Format), is_list(Args) ->
-            do_log(LL, 50, Hn, "~w: received message: ~9999p",
-                   [?MODULE, {Format, Args}]),
-            do_log(Hn, Format, Args),
-            {noreply, State};
-        _ ->
-            do_log(LL, 7, Hn, "~w: unknown info ~9999p",
-                   [?MODULE, Request]),
-            {noreply, State}
-    end.
-
-handle_call(Request, From, State) ->
-    LL = State#state.loglevel,
-    Hn = State#state.handle,
-    case Request of
-        reconfig ->
-            do_log(LL, 12, Hn, "~w: reconfig signal received", [?MODULE]),
-            {ok, NewState} = do_reconfig(State),
-            do_log(NewState#state.loglevel, 12, NewState#state.handle,
-                   "~w: reconfig succeeded", [?MODULE]),
-            {reply, ok, NewState};
-        _ ->
-            do_log(LL, 7, Hn, "~w: unknown call ~9999p from ~9999p",
-                   [?MODULE, Request, From]),
-            {noreply, State}
-    end.
-
-handle_cast(Request, State) ->
-    do_log(State#state.loglevel, 7, State#state.handle,
-           "~w: unknown cast ~9999p", [?MODULE, Request]),
+%% @hidden
+handle_info({msg, Time, Severity, Format, Args}, State)
+  when State#state.handle /= undefined,
+       State#state.loglevel >= Severity ->
+    try
+        Payload = io_lib:format(Format, Args),
+        Message =
+            io_lib:format(
+              "~s ~s: ~s~n",
+              [erjik_lib:timestamp(Time),
+               severity_to_list(Severity),
+               Payload]),
+        file:write(State#state.handle, Message)
+    catch
+        Type:Reason ->
+            CrashMessage =
+                io_lib:format(
+                  "~s ~s: LOG_ERROR: format_str: \"~s\"; args: ~99999999p; "
+                  "CRASHED: ~99999999p",
+                  [erjik_lib:timestamp(Time),
+                   severity_to_list(1),
+                   Format, Args,
+                   {Type, Reason, erlang:get_stacktrace()}]),
+            file:write(State#state.handle, CrashMessage)
+    end,
+    {noreply, State};
+handle_info(_Request, State) ->
     {noreply, State}.
 
-terminate(Reason, State) ->
-    LL = State#state.loglevel,
-    Hn = State#state.handle,
-    do_log(LL, 10, Hn, "~w:terminate(~9999p, ~9999p)",
-           [?MODULE, Reason, State]),
-    file:close(Hn).
+%% @hidden
+handle_call(_Request, _From, State) ->
+    {noreply, State}.
 
-code_change(OldVsn, State, Extra) ->
-    LL = State#state.loglevel,
-    Hn = State#state.handle,
-    do_log(LL, 12, Hn, "~w:code_change(~9999p, ~9999p, ~9999p)",
-           [?MODULE, OldVsn, State, Extra]),
+%% @hidden
+handle_cast(?SIG_RECONFIG, State) ->
+    catch file:close(State#state.handle),
+    Filename =
+        case proplists:get_value(erjik_log, init:get_arguments()) of
+            [[_ | _] = Filename0 | _] -> Filename0;
+            _ ->
+                %% default
+                "./erjik.log"
+        end,
+    Handle =
+        case file:open(Filename, [raw, append]) of
+            {ok, Handle0} -> Handle0;
+            _ -> undefined
+        end,
+    {noreply,
+     State#state{
+       loglevel = loglevel_to_severity(erjik_cfg:get(?CFG_LOGLEVEL)),
+       handle   = Handle
+      }};
+handle_cast(_Request, State) ->
+    {noreply, State}.
+
+%% @hidden
+terminate(_Reason, State) ->
+    catch file:close(State#state.handle).
+
+%% @hidden
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-% --------------------------------------------------------------------
-% Internal functions
-% --------------------------------------------------------------------
+%% ----------------------------------------------------------------------
+%% Internal functions
+%% ----------------------------------------------------------------------
 
-do_reconfig() ->
-    do_reconfig(#state{loglevel = ?CONF_LOGFILE_DEFAULT}).
-do_reconfig(State) ->
-    {ok, LF} = erjik_cfg:get(?CONF_LOGFILE, ?CONF_LOGFILE_DEFAULT),
-    catch file:close(State#state.handle),
-    {ok, Hn} = open(State#state.loglevel),
-    {ok, LL} = erjik_cfg:get(?CONF_LOGLEVEL, ?CONF_LOGLEVEL_DEFAULT),
-    if
-        State#state.loglevel /= LL ->
-            do_log(State#state.loglevel, 12, State#state.handle,
-                   "~w: loglevel changed from ~9999p to ~9999p",
-                   [?MODULE, State#state.loglevel, LL]);
-        true ->
-            ok
-    end,
-    {ok,
-     State#state{
-       loglevel = LL,
-       logfile  = LF,
-       handle   = Hn
-      }}.
+loglevel_to_severity(?LOGLEVEL_NONE) -> 0;
+loglevel_to_severity(?LOGLEVEL_ERROR) -> 1;
+loglevel_to_severity(?LOGLEVEL_WARNING) -> 2;
+loglevel_to_severity(?LOGLEVEL_INFO) -> 3;
+loglevel_to_severity(?LOGLEVEL_DEBUG) -> 4.
 
-open(LL) ->
-    {ok, Filename} =
-        erjik_cfg:get(?CONF_LOGFILE, ?CONF_LOGFILE_DEFAULT),
-    case file:open(Filename, ?FILE_OPTS) of
-        {ok, Handle} = Ok ->
-            do_log(LL, 12, Handle, "~w: log opened", [?MODULE]),
-            Ok;
-        {error, Reason} = Error ->
-            error("~w: unable to open logfile ~9999p: ~9999p",
-                  [?MODULE, Filename, Reason]),
-            Error
-    end.
-
-do_log(LogLevel, MsgLogLevel, _, _, _)
-  when MsgLogLevel > LogLevel -> ok;
-do_log(_, _, Handle, Format, Args) ->
-    do_log(Handle, Format, Args).
-
-do_log(Handle, Format, Args) ->
-    Data =
-        io_lib:format(
-          erjik_lib:timestamp(now()) ++ " " ++
-              Format ++ "~n", Args),
-    file:write(Handle, Data).
+severity_to_list(1) -> "ERROR";
+severity_to_list(2) -> "WARNING";
+severity_to_list(3) -> "INFO";
+severity_to_list(4) -> "DEBUG".
 

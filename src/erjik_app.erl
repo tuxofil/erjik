@@ -7,25 +7,30 @@
 
 -behaviour(application).
 
-%% callback functions
+%% callback exports
 -export([start/2, start_phase/3, prep_stop/1, stop/1, config_change/3]).
 
 %% --------------------------------------------------------------------
-%% Callback functions
+%% application callbacks
 %% --------------------------------------------------------------------
 
+%% @hidden
 start(_Type, _StartArgs) ->
     erjik_sup:start_link().
 
+%% @hidden
 start_phase(_Phase, _StartType, _PhaseArgs) ->
     ok.
 
+%% @hidden
 prep_stop(_State) ->
     ok.
 
+%% @hidden
 stop(_State) ->
     ok.
 
+%% @hidden
 config_change(_Changed, _New, _Removed) ->
     ok.
 

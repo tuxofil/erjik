@@ -8,22 +8,50 @@
 -ifndef(_ERJIK).
 -define(_ERJIK, true).
 
--define(CONF_LOGLEVEL, loglevel).
--define(CONF_LOGLEVEL_DEFAULT, 8).
--define(CONF_LOGFILE, logfile).
--define(CONF_LOGFILE_DEFAULT, "/dev/null").
--define(CONF_BLACKLISTS_DIR, blacklists_dir).
--define(CONF_PRIVILEGED, privileged).
--define(CONF_ALLOW, allow).
--define(CONF_DENY, deny).
--define(CONF_ORDER, order).
+%% various configuration tokens
+-define(CFG_LOGLEVEL, loglevel).
+-define(CFG_IP_DENY_REDIRECT, ip_deny_redirect).
+-define(CFG_ORDER, order).
+-define(CFG_PRIVILEGED, privileged).
+-define(CFG_ALLOW, allow).
+-define(CFG_DENY, deny).
+-define(CFG_DEFAULT_POLICY, default_policy).
+-define(CFG_BIND_IP, bind_ip).
+-define(CFG_BIND_PORT, bind_port).
+-define(CFG_WWW_ROOT, www_root).
 
--define(CONF_IP_DENY_URL, ip_deny_url).
+-define(CFGS_SIMPLE,
+        [?CFG_LOGLEVEL, ?CFG_PRIVILEGED, ?CFG_ALLOW, ?CFG_DENY,
+         ?CFG_ORDER, ?CFG_IP_DENY_REDIRECT, ?CFG_DEFAULT_POLICY,
+         ?CFG_BIND_IP, ?CFG_BIND_PORT, ?CFG_WWW_ROOT]).
 
--define(PRIV_DIR, "priv").
+-define(CFG_CLASS_NAMES, class_names).
 
--define(log(LogLevel, Format, Args), erjik_log:log(LogLevel, Format, Args)).
--define(logf(Format, Args), erjik_log:log(Format, Args)).
--define(error(Format, Args), erjik_log:error(Format, Args)).
+-define(CFG_CLASS_DOMAINS, domains).
+-define(CFG_CLASS_REGEXPS, regexps).
+-define(CFG_CLASS_REDIRECT, redirect).
+
+-define(CFGS_CLASS,
+        [?CFG_CLASS_DOMAINS, ?CFG_CLASS_REGEXPS, ?CFG_CLASS_REDIRECT]).
+
+-define(LOGLEVEL_NONE, none).
+-define(LOGLEVEL_ERROR, error).
+-define(LOGLEVEL_WARNING, warning).
+-define(LOGLEVEL_INFO, info).
+-define(LOGLEVEL_DEBUG, debug).
+
+-define(LOGLEVELS,
+        [?LOGLEVEL_NONE, ?LOGLEVEL_ERROR, ?LOGLEVEL_WARNING,
+         ?LOGLEVEL_INFO, ?LOGLEVEL_DEBUG]).
+
+%% logging
+-define(logerr(Format, Args), erjik_log:log(1, Format, Args)).
+-define(logwrn(Format, Args), erjik_log:log(2, Format, Args)).
+-define(loginf(Format, Args), erjik_log:log(3, Format, Args)).
+-define(logdbg(Format, Args), erjik_log:log(4, Format, Args)).
+
+%% internal process signals
+-define(SIG_RECONFIG, '#reconfig').
 
 -endif.
+

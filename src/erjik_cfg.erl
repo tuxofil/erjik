@@ -1,401 +1,492 @@
 %%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
-%%% @since 20 Mar 2009
-%%% @copyright 2009, Aleksey Morarash
+%%% @since 15 Mar 2012
+%%% @copyright 2009-2012, Aleksey Morarash
 %%% @doc Configuration facility library
 
 -module(erjik_cfg).
 
 -behaviour(gen_server).
 
-%% API functions
--export([start_link/0, get/1, get/2, lookup/1, match/1, reconfig/0]).
+%% API exports
+-export(
+   [start_link/0,
+    get/1,
+    classify/1,
+    hup/0
+   ]).
 
-%% Callback functions
+%% gen_server callback exports
 -export([init/1, handle_call/3, handle_info/2, handle_cast/2,
          terminate/2, code_change/3]).
 
 -include("erjik.hrl").
 
-%% --------------------------------------------------------------------
-%% API functions
-%% --------------------------------------------------------------------
+%% ETS names
+-define(FAC_CONFIGS, erjik_fac_configs).
+-define(FAC_DOMAINS, erjik_fac_domains).
+-define(FAC_REGEXPS, erjik_fac_regexps).
 
+%% ----------------------------------------------------------------------
+%% API functions
+%% ----------------------------------------------------------------------
+
+%% @doc Start configuration facility process as part of supervision tree.
+%% @spec start_link() -> {ok, pid()}
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
-get(ParamName) when is_atom(ParamName) ->
-    gen_server:call(?MODULE, {get, ParamName}).
-
-get(ParamName, Default) when is_atom(ParamName) ->
-    case ?MODULE:get(ParamName) of
-        {ok, _Value} = Ok ->
-            Ok;
-        _ ->
-            {ok, Default}
+%% @doc Fetch configuration param value. In case when no configuration
+%%      available yet (on system start for example) default value
+%%      will be returned.
+%% @spec get(Key) -> Value
+%%     Key = atom(),
+%%     Value = term()
+get(Key) ->
+    try ets:lookup(?FAC_CONFIGS, Key) of
+        [{Key, Value} | _] -> Value;
+        _ -> get_default_value(Key)
+    catch
+        _:_ -> get_default_value(Key)
     end.
 
-lookup(Domain) when is_list(Domain) ->
-    gen_server:call(?MODULE, {lookup, Domain}).
+%% @doc Classify URL by defined in configuration destination classes.
+%% @spec classify(URL) -> {ok, ClassName, RedirectURL} | undefined
+%%     URL = string(),
+%%     ClassName = string(),
+%%     RedirectURL = string()
+classify(URL) ->
+    case erjik_lib:parse_uri(URL) of
+        {ok, List} ->
+            {Hostname, IsIP} =
+                case proplists:get_value(hostname, List) of
+                    [_ | _] = Domain ->
+                        {Domain, false};
+                    IP when is_tuple(IP) ->
+                        {erjik_lib:ip_to_list(IP), true}
+                end,
+            classify(
+              URL, Hostname, IsIP,
+              ?MODULE:get(?CFG_CLASS_NAMES));
+        _ -> undefined
+    end.
+classify(_URL, _Hostname, _IsIP, []) -> undefined;
+classify(URL, Hostname, IsIP, [{ClassName, RedirectURL} | Tail]) ->
+    case classify_hostname(ClassName, Hostname, IsIP) of
+        true -> {ok, ClassName, RedirectURL};
+        _ ->
+            case classify_url(ClassName, URL) of
+                true -> {ok, ClassName, RedirectURL};
+                _ ->
+                    classify(URL, Hostname, IsIP, Tail)
+            end
+    end.
 
-match(Url) when is_list(Url) ->
-    gen_server:call(?MODULE, {match, Url}).
+%% @doc Sends 'reconfig' signal to configuration facility process.
+%% @spec hup() -> ok
+hup() ->
+    gen_server:cast(?MODULE, ?SIG_RECONFIG).
 
-reconfig() ->
-    gen_server:call(?MODULE, reconfig).
-
-%% --------------------------------------------------------------------
+%% ----------------------------------------------------------------------
 %% Callback functions
-%% --------------------------------------------------------------------
+%% ----------------------------------------------------------------------
 
-%% server state record
--record(state, {logready}).
+%% state record
+-record(state, {}).
 
--define(FAC_MAIN_CONF, erjik_fac_main_conf).
--define(FAC_BLACKLIST, erjik_fac_blacklist).
--define(FAC_REGEXP, erjik_fac_regexps).
-
+%% @hidden
 init(_Args) ->
-    ets:new(?FAC_MAIN_CONF, [set, public, named_table]),
-    ets:new(?FAC_BLACKLIST, [set, public, named_table]),
-    ets:new(?FAC_REGEXP, [set, public, named_table]),
-    ok = do_reconfig(),
+    ets:new(?FAC_CONFIGS, [named_table]),
+    ets:new(?FAC_DOMAINS, [named_table]),
+    ets:new(?FAC_REGEXPS, [named_table, ordered_set]),
+    hup(),
+    ?loginf("~w> started", [?MODULE]),
     {ok, #state{}}.
 
-handle_info(logready, State) when State#state.logready ->
-    {noreply, State};
-handle_info(logready, State) ->
-    ?log(15, "~w: second phase of configuration", [?MODULE]),
-    NewState = State#state{logready = true},
-    ok = do_reconfig2(NewState),
-    ?log(12, "~w: second phase of configuration done", [?MODULE]),
-    {noreply, NewState};
+%% @hidden
 handle_info(Request, State) ->
-    ?log(7, "~w: unknown info ~9999p", [?MODULE, Request]),
+    ?logwrn("~w> unknown info ~9999p", [?MODULE, Request]),
     {noreply, State}.
 
-handle_call(reconfig, _From, State) ->
-    ?log(15, "~w: reconfig requested", [?MODULE]),
-    ok = do_reconfig(),
-    ok = do_reconfig2(State),
-    ?log(12, "~w: reconfig done", [?MODULE]),
-    {reply, ok, State};
-handle_call({lookup, Domain}, From, State) ->
-    ?log(30, "~w: domain lookup for ~s", [?MODULE, Domain]),
-    spawn(fun() -> gen_server:reply(From, do_lookup(Domain)) end),
-    {noreply, State};
-handle_call({match, Url}, From, State) ->
-    ?log(30, "~w: domain match for ~s", [?MODULE, Url]),
-    spawn(fun() -> gen_server:reply(From, do_match(Url)) end),
-    {noreply, State};
-handle_call({get, ParamName}, From, State) ->
-    ?log(30, "~w: requested value for ~w", [?MODULE, ParamName]),
-    spawn(fun() -> gen_server:reply(From, do_get(ParamName)) end),
-    {noreply, State};
+%% @hidden
 handle_call(Request, From, State) ->
-    ?log(7, "~w: unknown call ~9999p from ~9999p",
-         [?MODULE, Request, From]),
+    ?logwrn("~w> unknown call ~9999p from ~9999p",
+            [?MODULE, Request, From]),
     {noreply, State}.
 
+%% @hidden
+handle_cast(?SIG_RECONFIG, State) ->
+    ?loginf("~w> reconfig requested", [?MODULE]),
+    read(),
+    {noreply, State};
 handle_cast(Request, State) ->
-    ?log(7, "~w: unknown cast ~9999p", [?MODULE, Request]),
+    ?logwrn("~w> unknown cast ~9999p", [?MODULE, Request]),
     {noreply, State}.
 
+%% @hidden
 terminate(Reason, State) ->
-    ?log(10, "~w:terminate(~9999p, ~9999p)",
-         [?MODULE, Reason, State]).
+    ?loginf("~w> terminate(~9999p, ~9999p)",
+            [?MODULE, Reason, State]).
 
+%% @hidden
 code_change(OldVsn, State, Extra) ->
-    ?log(12, "~w:code_change(~9999p, ~9999p, ~9999p)",
-         [?MODULE, OldVsn, State, Extra]),
+    ?loginf("~w> code_change(~9999p, ~9999p, ~9999p)",
+            [?MODULE, OldVsn, State, Extra]),
     {ok, State}.
 
-%% --------------------------------------------------------------------
+%% ----------------------------------------------------------------------
 %% Internal functions
-%% --------------------------------------------------------------------
+%% ----------------------------------------------------------------------
 
-do_get(Key) ->
-    case ets:lookup(?FAC_MAIN_CONF, Key) of
-        [{Key, Value} | _] ->
-            {ok, Value};
-        _ ->
-            undefined
-    end.
-
-do_get(Key, Default) ->
-    case do_get(Key) of
-        undefined -> {ok, Default};
-        Ok -> Ok
-    end.
-
-%% @spec do_reconfig() -> ok | {error, Reason}
-%%     Reason = term()
-do_reconfig() ->
-    try
-        {ok, Terms} = file:consult(filename()),
-        ets:delete_all_objects(?FAC_MAIN_CONF),
-        lists:foreach(
-          fun({Key, Value} = X) when is_atom(Key) ->
-                  case validate(Key, Value) of
-                      ok ->
-                          ets:insert(?FAC_MAIN_CONF, X);
-                      {error, Reason} ->
-                          report_error(Reason),
-                          throw(Reason)
-                  end;
-             ({class, ClassName, ClassOptions}) ->
-                  case validate_class(ClassName, ClassOptions) of
-                      ok ->
-                          ets:insert(
-                            ?FAC_MAIN_CONF,
-                            {{class, ClassName}, ClassOptions});
-                      {error, Reason} ->
-                          report_error(Reason),
-                          throw(Reason)
-                  end;
-             (Some) ->
-                  fatal("~w: unrecognized term in "
-                        "configuration: ~9999p",
-                        [?MODULE, Some]),
-                  throw({badkey, Some})
-          end, Terms)
-    catch
-        Type:Reason ->
-            fatal("~w: reconfig failed: ~9999p",
-                  [?MODULE, {Type, Reason, erlang:get_stacktrace()}]),
-            {error, Reason}
-    end.
-
-do_reconfig2(State) when State#state.logready ->
-    {ok, BLDir} =
-        do_get(?CONF_BLACKLISTS_DIR, def_blacklists_dir()),
-    DomainFiles =
-        [{Class, F} ||
-            {{class, Class}, Opts} <-
-                ets:tab2list(?FAC_MAIN_CONF), {domains, F} <- Opts],
-    ets:delete_all_objects(?FAC_BLACKLIST),
-    set(
-      lists:flatmap(
-        fun({Class, Filename}) ->
-                [{D, Class} ||
-                    D <- read_bl_file(
-                           filename:join([BLDir, Filename])), D /= []]
-        end, DomainFiles)),
-    RegexpFiles =
-        [{Class, F} ||
-            {{class, Class}, Opts} <- ets:tab2list(?FAC_MAIN_CONF),
-            {regexps, F} <- Opts],
-    ets:delete_all_objects(?FAC_REGEXP),
-    Regexps =
-        lists:flatmap(
-          fun({Class, Filename}) ->
-                  [{R, Class} ||
-                      R <- read_bl_file(
-                             filename:join([BLDir, Filename])), R /= []]
-          end, RegexpFiles),
-    lists:foreach(fun(X) -> ets:insert(?FAC_REGEXP, X) end, Regexps);
-do_reconfig2(_) ->
+%% @doc Reads configurations from main config and loads
+%%      all related domain and regexp databases.
+%% @spec read() -> ok
+read() ->
+    Filename =
+        case proplists:get_value(erjik_config, init:get_arguments()) of
+            [_ | _] = Filename0 -> Filename0;
+            _ ->
+                Default = "./erjik.conf",
+                ?logwrn(
+                   "~w> No config filename specified. "
+                   "\"~s\" will be used as default. You may define "
+                   "configuration file location with '-erjik_config' "
+                   "option.", [?MODULE, Default]),
+                Default
+        end,
+    Content =
+        case file:read_file(Filename) of
+            {ok, Binary} ->
+                binary_to_list(Binary);
+            {error, Reason} ->
+                ?logerr(
+                   "~w> Failed to read configuration file "
+                   "\"~s\": ~9999p", [?MODULE, Filename, Reason]),
+                []
+        end,
+    apply_config(
+      assemble_config(
+        parse_config(Content))),
+    ?loginf("~w> reconfig done", [?MODULE]),
+    catch erjik_log:hup(),
+    catch erjik_srv:hup(),
+    catch erjik_httpd:hup(),
     ok.
 
-read_bl_file(Filename) ->
-    try
-        {ok, Binary} = file:read_file(Filename),
-        {ok, Domains} = regexp:split(binary_to_list(Binary), "\n"),
-        ?log(15, "~w: file ~s ok",
-             [?MODULE, filename:absname(Filename)]),
-        Domains
-    catch
-        Type:Reason ->
-            ?log(4, "~w: file ~s failed due to ~9999p",
-                 [?MODULE, filename:absname(Filename),
-                  {Type, Reason, erlang:get_stacktrace()}]),
+%% @doc Returns default value for configuration parameter.
+%% @spec get_default_value(Key) -> Value
+%%     Key = atom(),
+%%     Value = term()
+get_default_value(?CFG_LOGLEVEL) -> ?LOGLEVEL_WARNING;
+get_default_value(?CFG_IP_DENY_REDIRECT) ->
+    "http://127.0.0.1:8888/denied.html";
+get_default_value(?CFG_ORDER) -> [?CFG_ALLOW, ?CFG_DENY];
+get_default_value(?CFG_PRIVILEGED) -> [any];
+get_default_value(?CFG_ALLOW) -> [any];
+get_default_value(?CFG_DENY) -> [];
+get_default_value(?CFG_DEFAULT_POLICY) -> ?CFG_ALLOW;
+get_default_value(?CFG_BIND_IP) -> {127,0,0,1};
+get_default_value(?CFG_BIND_PORT) -> 8888;
+get_default_value(?CFG_WWW_ROOT) -> "./www/";
+get_default_value(?CFG_CLASS_NAMES) -> [];
+get_default_value(_) -> undefined.
+
+%% @doc Returns parsed all valid key-value pairs from
+%%      configuration file body.
+%% @spec parse_config(String) -> ConfigItems
+%%     String = string(),
+%%     ConfigItems = [ConfigItem],
+%%     ConfigItem = {Key, Value},
+%%     Key = atom() | {class, ClassName, ClassParam},
+%%     ClassName = string(),
+%%     ClassParam = atom(),
+%%     Value = term()
+parse_config(String) ->
+    lists:flatmap(
+      fun({LineNo, StrKey, StrValue}) ->
+              case parse_key(StrKey) of
+                  {ok, Key} ->
+                      case parse_val(Key, StrValue) of
+                          {ok, Value} ->
+                              [{Key, Value}];
+                          _ ->
+                              ?logerr(
+                                 "~w> config: bad value on line ~w "
+                                 "for key '~s': \"~s\"",
+                                 [?MODULE, LineNo, StrKey, StrValue]),
+                              []
+                      end;
+                  _ ->
+                      ?logerr(
+                         "~w> config: bad key on line ~w: \"~s\"",
+                         [?MODULE, LineNo, StrKey]),
+                      []
+              end
+      end, erjik_lib:preparse_config(String)).
+
+%% @doc Processes parsed key-value pairs and produces final
+%%      application configuration database.
+%% @spec assemble_config(ConfigItems) -> {Config, Classes}
+%%     ConfigItems = [ConfigItem],
+%%     ConfigItem = {Key, Value},
+%%         Key = atom() | {class, ClassName, ClassParam},
+%%         ClassName = string(),
+%%         ClassParam = atom(),
+%%         Value = term(),
+%%     Config = [{CfgKey, CfgValue}],
+%%         CfgKey = atom(),
+%%         CfgValue = term(),
+%%     Classes = [{ClassName, Domains, Regexps, RedirectURL}],
+%%         Domains = [string()],
+%%         Regexps = [string()],
+%%         RedirectURL = undefined | string()
+assemble_config(CfgItems) ->
+    Config =
+        [{?CFG_LOGLEVEL,
+          case [V || {?CFG_LOGLEVEL, V} <- CfgItems] of
+              [LogLevel | _] -> LogLevel;
+              _ -> set_default(?CFG_LOGLEVEL)
+          end},
+         {?CFG_IP_DENY_REDIRECT,
+          case [V || {?CFG_IP_DENY_REDIRECT, [_ | _] = V} <- CfgItems] of
+              [IpDenyRedirect | _] -> IpDenyRedirect;
+              _ -> set_default(?CFG_IP_DENY_REDIRECT)
+          end},
+         {?CFG_ORDER,
+          case [V || {?CFG_ORDER, V} <- CfgItems] of
+              [Order | _] -> Order;
+              _ -> set_default(?CFG_ORDER)
+          end},
+         {?CFG_PRIVILEGED,
+          case [V || {?CFG_PRIVILEGED, V} <- CfgItems] of
+              [_ | _] = Privileged ->
+                  erjik_lib:flatten_ip_pool(Privileged);
+              _ -> set_default(?CFG_PRIVILEGED)
+          end},
+         {?CFG_ALLOW,
+          case [V || {?CFG_ALLOW, V} <- CfgItems] of
+              [_ | _] = Allow ->
+                  erjik_lib:flatten_ip_pool(Allow);
+              _ -> set_default(?CFG_ALLOW)
+          end},
+         {?CFG_DENY,
+          case [V || {?CFG_DENY, V} <- CfgItems] of
+              [_ | _] = Deny ->
+                  erjik_lib:flatten_ip_pool(Deny);
+              _ -> set_default(?CFG_DENY)
+          end},
+         {?CFG_DEFAULT_POLICY,
+          case [V || {?CFG_DEFAULT_POLICY, V} <- CfgItems] of
+              [DefaultPolicy | _] -> DefaultPolicy;
+              _ -> set_default(?CFG_DEFAULT_POLICY)
+          end},
+         {?CFG_BIND_IP,
+          case [V || {?CFG_BIND_IP, V} <- CfgItems] of
+              [BindIP | _] -> BindIP;
+              _ -> set_default(?CFG_BIND_IP)
+          end},
+         {?CFG_BIND_PORT,
+          case [V || {?CFG_BIND_PORT, V} <- CfgItems] of
+              [BindPort | _] -> BindPort;
+              _ -> set_default(?CFG_BIND_PORT)
+          end},
+         {?CFG_WWW_ROOT,
+          case [V || {?CFG_WWW_ROOT, V} <- CfgItems] of
+              [WwwRoot | _] -> WwwRoot;
+              _ -> set_default(?CFG_WWW_ROOT)
+          end},
+         {?CFG_CLASS_NAMES, []}],
+    %% read blacklists...
+    Classes0 =
+        lists:map(
+          fun(ClassName) ->
+                  PL = [{K, V} ||
+                           {{class, C, K}, V} <- CfgItems,
+                           C == ClassName],
+                  {ClassName,
+                   case [V || {?CFG_CLASS_DOMAINS, V} <- PL] of
+                       [[_ | _] = DomainsFilename | _] ->
+                           read_blacklist(DomainsFilename);
+                       _ -> []
+                   end,
+                   case [V || {?CFG_CLASS_REGEXPS, V} <- PL] of
+                       [[_ | _] = RegexpsFilename | _] ->
+                           read_blacklist(RegexpsFilename);
+                       _ -> []
+                   end,
+                   case [V || {?CFG_CLASS_REDIRECT, V} <- PL] of
+                       [[_ | _] = URL | _] -> URL;
+                       _ -> undefined
+                   end}
+          end, erjik_lib:uniq([N || {{class, N, _}, _} <- CfgItems])),
+    %% drop classes with empty lists...
+    Classes =
+        lists:filter(
+          fun({ClassName, [], [], _}) ->
+                  ?loginf(
+                     "~w> config: class \"~s\" dropped off becouse of "
+                     "empty list of domains and regexps",
+                     [?MODULE, ClassName]),
+                  false;
+             (_) -> true
+          end, Classes0),
+    case Classes of
+        [] ->
+            ?logwrn(
+               "~w> There is no meaning destination "
+               "classes at all! Check your configuration.",
+               [?MODULE]);
+        _ -> nop
+    end,
+    {Config, Classes}.
+
+%% @doc Inserts configuration data to database (ETSes)
+%% @spec apply_config(Configs) -> ok
+%%     Configs = term()
+apply_config({Config, Classes}) ->
+    DefaultPolicy = proplists:get_value(?CFG_DEFAULT_POLICY, Config),
+    TmpConfig =
+        [{?CFG_DEFAULT_POLICY, ?CFG_ALLOW} |
+         [I || {K, _} = I <- Config, K /= ?CFG_DEFAULT_POLICY]],
+    ets:insert(?FAC_CONFIGS, TmpConfig),
+    ets:delete_all_objects(?FAC_DOMAINS),
+    ets:delete_all_objects(?FAC_REGEXPS),
+    lists:foreach(
+      fun({ClassName, Domains, Regexps, _URL}) ->
+              ets:insert(
+                ?FAC_DOMAINS,
+                [{{ClassName, D}, ok} || D <- Domains]),
+              ets:insert(?FAC_REGEXPS, {ClassName, Regexps})
+      end, Classes),
+    ClassNames = [{N, U} || {N, _, _, U} <- Classes],
+    ets:insert(
+      ?FAC_CONFIGS,
+      [{?CFG_DEFAULT_POLICY, DefaultPolicy},
+       {?CFG_CLASS_NAMES, ClassNames}]),
+    ok.
+
+%% ----------------------------------------------------------------------
+%% low level parsers and data processing tools
+
+set_default(Key) ->
+    Value = get_default_value(Key),
+    ?loginf(
+       "~w> config: '~w' set to default: ~9999p",
+       [?MODULE, Key, Value]),
+    Value.
+
+read_blacklist(Filename) ->
+    case file:read_file(Filename) of
+        {ok, Binary} ->
+            lists:flatmap(
+              fun(Line) ->
+                      case erjik_lib:strip(Line, " \t") of
+                          [_ | _] = Item -> [Item];
+                          _ -> []
+                      end
+              end, string:tokens(binary_to_list(Binary), "\r\n"));
+        {error, Reason} ->
+            ?logerr(
+               "~w> config: unable to read file \"~s\": ~9999p",
+               [?MODULE, Filename, Reason]),
             []
     end.
 
-%% @spec set(DomainBinds) -> ok | {error, Reason}
-%%     DomainBinds = [DomainBind],
-%%     DomainBind = {Domain, Class},
-%%     Domain = string(),
-%%     Class = atom(),
-%%     Reason = term()
-set(DomainBinds) ->
-    lists:foreach(
-      fun({Domain, Class}) ->
-              Lowered = string:to_lower(Domain),
-              ets:insert(?FAC_BLACKLIST, {Lowered, Class})
-      end, DomainBinds).
-
-%% @spec do_lookup(Domain) -> undefined | {ok, Class, Destination} | {error, Reason}
-%%     Domain = string(),
-%%     Class = atom(),
-%%     Destination = pass | url(),
-%%     Reason = term()
-do_lookup(Domain) ->
-    case inet_parse:address(Domain) of
-        {ok, _} ->
-            case ets:lookup(?FAC_BLACKLIST, Domain) of
-                [R | _] ->
-                    Class = element(2, R),
-                    {ok, Class, get_redirect_url(Class)};
-                _ ->
-                    undefined
+parse_key("class." ++ String) ->
+    case parse_class_key(String, []) of
+        {ok, ClassName, ClassParam} ->
+            case erjik_lib:list_to_atom(ClassParam, ?CFGS_CLASS) of
+                {ok, Key} ->
+                    {ok, {class, ClassName, Key}};
+                _ -> error
             end;
-        _ ->
-            lookup_hostname(string:to_lower(Domain))
+        _ -> error
+    end;
+parse_key(String) ->
+    erjik_lib:list_to_atom(String, ?CFGS_SIMPLE).
+
+parse_class_key([], _) -> error;
+parse_class_key([$. | _], []) -> error;
+parse_class_key([$. | ConfigName], ClassName) ->
+    {ok, lists:reverse(ClassName), ConfigName};
+parse_class_key([C | Tail], ClassName)
+  when (C >= $a andalso C =< $z) orelse
+       (C >= $0 andalso C =< $9) orelse
+       (C == $_ orelse C == $- orelse $:) ->
+    parse_class_key(Tail, [C | ClassName]);
+parse_class_key(_, _) -> error.
+
+parse_val(Key, StrValue) ->
+    try {ok, _Value} = parse_val_(Key, StrValue)
+    catch _:_ -> error end.
+parse_val_(?CFG_LOGLEVEL, String) ->
+    erjik_lib:list_to_atom(
+      string:to_lower(String), ?LOGLEVELS);
+parse_val_(?CFG_PRIVILEGED, String) ->
+    parse_ip_range(String);
+parse_val_(?CFG_ALLOW, String) ->
+    parse_ip_range(String);
+parse_val_(?CFG_DENY, String) ->
+    parse_ip_range(String);
+parse_val_(?CFG_IP_DENY_REDIRECT, [_ | _] = String) ->
+    {ok, String};
+parse_val_(?CFG_DEFAULT_POLICY, String) ->
+    erjik_lib:list_to_atom(
+      string:to_lower(String), [?CFG_ALLOW, ?CFG_DENY]);
+parse_val_(?CFG_ORDER, String) ->
+    {ok,
+     erjik_lib:uniq(
+       lists:map(
+         fun(S) ->
+                 {ok, A} =
+                     erjik_lib:list_to_atom(
+                       string:to_lower(S),
+                       [?CFG_ALLOW, ?CFG_DENY]),
+                 A
+         end, string:tokens(String, " \t,")))};
+parse_val_(?CFG_BIND_IP, String) ->
+    erjik_lib:list_to_ip(String);
+parse_val_(?CFG_BIND_PORT, String) ->
+    Int = list_to_integer(String),
+    true = 0 < Int andalso Int < 16#ffff,
+    {ok, Int};
+parse_val_(?CFG_WWW_ROOT, String) ->
+    {ok, String}.
+
+parse_ip_range(String) ->
+    case string:to_lower(String) of
+        "any" -> {ok, any};
+        "all" -> {ok, any};
+        "none" -> {ok, none};
+        _ -> erjik_lib:list_to_ip_range(String)
     end.
 
-lookup_hostname(Domain) ->
-    case ets:lookup(?FAC_BLACKLIST, Domain) of
-        [Rec | _] ->
-            Class = element(2, Rec),
-            {ok, Class, get_redirect_url(Class)};
-        _ ->
-            Splitted = string:tokens(Domain, "."),
-            if
-                length(Splitted) > 1 ->
-                    [_ | MoreCommon] = Splitted,
-                    lookup_hostname1(MoreCommon);
-                true ->
-                    undefined
-            end
+classify_hostname(ClassName, StrIP, true) ->
+    case ets:lookup(?FAC_DOMAINS, {ClassName, StrIP}) of
+        [_] -> true;
+        _ -> false
+    end;
+classify_hostname(ClassName, Domain, _) ->
+    classify_domain(
+      ClassName, lists:reverse(string:tokens(Domain, "."))).
+
+classify_domain(ClassName, [_ | Tail] = Tokens) ->
+    Domain = string:join(lists:reverse(Tokens), "."),
+    case ets:lookup(?FAC_DOMAINS, {ClassName, Domain}) of
+        [_] -> true;
+        _ -> classify_domain(ClassName, Tail)
+    end;
+classify_domain(_, _) -> false.
+
+classify_url(ClassName, URL) ->
+    case ets:lookup(?FAC_REGEXPS, ClassName) of
+        [{_, [_ | _] = List}] ->
+            lists:any(
+              fun(Regexp) ->
+                      case re:run(URL, Regexp, []) of
+                          {match, _} -> true;
+                          _ -> false
+                      end
+              end, List);
+        _ -> false
     end.
-
-lookup_hostname1(Domain) ->
-    JoinedDomain = string:join(Domain, "."),
-    case ets:lookup(?FAC_BLACKLIST, JoinedDomain) of
-        [Rec | _] ->
-            Class = element(2, Rec),
-            {ok, Class, get_redirect_url(Class)};
-        _ ->
-            if
-                length(Domain) > 1 ->
-                    [_ | MoreCommonDomain] = Domain,
-                    lookup_hostname1(MoreCommonDomain);
-                true ->
-                    undefined
-            end
-    end.
-
-get_redirect_url(Class) ->
-    case ets:lookup(?FAC_MAIN_CONF, {class, Class}) of
-        [Rec | _] ->
-            case [U || {redirect, U} <- element(2, Rec)] of
-                [URL | _] ->
-                    URL;
-                _ ->
-                    pass
-            end;
-        _ ->
-            pass
-    end.
-
-%% @spec do_match(Url) -> undefined | {ok, Class, Destination} | {error, Reason}
-%%     Url = string(),
-%%     Class = atom(),
-%%     Destination = pass | url(),
-%%     Reason = term()
-do_match(Url) ->
-    do_match1(Url, ets:tab2list(?FAC_REGEXP)).
-
-do_match1(_, []) -> undefined;
-do_match1(Url, [{Regexp, Class} | T]) ->
-    case regexp:match(Url, Regexp) of
-        {match, _, _} -> {ok, Class, get_redirect_url(Class)};
-        _ -> do_match1(Url, T)
-    end.
-
-report_error({badval, Key, Value}) ->
-    fatal("bad value for '~w' option: ~p", [Key, Value]);
-report_error({badkey, Key}) ->
-    fatal("bad option: ~p", [Key]);
-report_error({badclass, Name, Options}) ->
-    fatal("bad class: ~p, ~p", [Name, Options]);
-report_error(Other) ->
-    fatal("FATAL: ~p", [Other]).
-
-filename() ->
-    {ok, App} = application:get_application(),
-    filename:absname(
-      filename:join(
-        ["erjik", ?PRIV_DIR, atom_to_list(App) ++ ".conf"])).
-
-%% @spec validate(Key, Value) -> ok | {error, Reason}
-validate(?CONF_LOGLEVEL, Value) ->
-    if is_integer(Value) andalso
-       Value >= 0 andalso
-       Value =< 50 -> ok;
-        true -> {error, {badval, ?CONF_LOGLEVEL, Value}}
-    end;
-validate(?CONF_LOGFILE, Value) ->
-    case erjik_lib:is_string(Value) of
-        true -> ok;
-        _ -> {error, {badval, ?CONF_LOGFILE, Value}}
-    end;
-validate(?CONF_BLACKLISTS_DIR, Value) ->
-    case erjik_lib:is_string(Value) of
-        true -> ok;
-        _ -> {error, {badval, ?CONF_BLACKLISTS_DIR, Value}}
-    end;
-validate(?CONF_PRIVILEGED, Value) ->
-    case erjik_lib:is_ippool(Value) of
-        true -> ok;
-        false -> {error, {badval, ?CONF_PRIVILEGED, Value}}
-    end;
-validate(?CONF_ALLOW, Value) ->
-    case erjik_lib:is_ippool(Value) of
-        true -> ok;
-        false -> {error, {badval, ?CONF_ALLOW, Value}}
-    end;
-validate(?CONF_DENY, Value) ->
-    case erjik_lib:is_ippool(Value) of
-        true -> ok;
-        false -> {error, {badval, ?CONF_DENY, Value}}
-    end;
-validate(?CONF_ORDER, Value) ->
-    try
-        true = (length(lists:usort(Value)) == length(Value)),
-        lists:foreach(
-          fun(X) ->
-                  true =
-                      lists:member(
-                        X, [?CONF_PRIVILEGED, ?CONF_ALLOW,
-                            ?CONF_DENY])
-          end, Value)
-    catch
-        _:_ ->
-            {error, {badval, ?CONF_ORDER, Value}}
-    end;
-validate(?CONF_IP_DENY_URL, Value) ->
-    case erjik_lib:is_string(Value) of
-        true -> ok;
-        false -> {error, {badval, ?CONF_IP_DENY_URL, Value}}
-    end;
-validate(Key, _Value) ->
-    {error, {badkey, Key}}.
-
-validate_class(Name, Options) when is_atom(Name), is_list(Options) ->
-    ValidOption =
-        fun({domains, Filename}) ->
-                erjik_lib:is_string(Filename);
-           ({regexps, Filename}) ->
-                erjik_lib:is_string(Filename);
-           ({redirect, URL}) ->
-                erjik_lib:is_string(URL);
-           (_) ->
-                false
-        end,
-    case lists:all(ValidOption, Options) of
-        true ->
-            ok;
-        _ ->
-            {error, {badclass, Name, Options}}
-    end;
-validate_class(Name, Options) ->
-    {error, {badclass, Name, Options}}.
-
-fatal(Format, Args) ->
-    ?error(Format, Args),
-    ?log(1, Format, Args).
-
-def_blacklists_dir() ->
-    filename:join(["erjik", ?PRIV_DIR, "blacklists"]).
 
