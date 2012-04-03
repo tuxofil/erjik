@@ -243,55 +243,75 @@ assemble_config(CfgItems) ->
     Config =
         [{?CFG_LOGLEVEL,
           case [V || {?CFG_LOGLEVEL, V} <- CfgItems] of
-              [LogLevel | _] -> LogLevel;
+              [LogLevel | _] ->
+                  logcfg(?CFG_LOGLEVEL, LogLevel),
+                  LogLevel;
               _ -> set_default(?CFG_LOGLEVEL)
           end},
          {?CFG_IP_DENY_REDIRECT,
           case [V || {?CFG_IP_DENY_REDIRECT, [_ | _] = V} <- CfgItems] of
-              [IpDenyRedirect | _] -> IpDenyRedirect;
+              [IpDenyRedirect | _] ->
+                  logcfg(?CFG_IP_DENY_REDIRECT, IpDenyRedirect),
+                  IpDenyRedirect;
               _ -> set_default(?CFG_IP_DENY_REDIRECT)
           end},
          {?CFG_ORDER,
           case [V || {?CFG_ORDER, V} <- CfgItems] of
-              [Order | _] -> Order;
+              [Order | _] ->
+                  logcfg(?CFG_ORDER, Order),
+                  Order;
               _ -> set_default(?CFG_ORDER)
           end},
          {?CFG_PRIVILEGED,
           case [V || {?CFG_PRIVILEGED, V} <- CfgItems] of
-              [_ | _] = Privileged ->
-                  erjik_lib:flatten_ip_pool(Privileged);
+              [_ | _] = Privileged0 ->
+                  Privileged = erjik_lib:flatten_ip_pool(Privileged0),
+                  logcfg(?CFG_PRIVILEGED, Privileged),
+                  Privileged;
               _ -> set_default(?CFG_PRIVILEGED)
           end},
          {?CFG_ALLOW,
           case [V || {?CFG_ALLOW, V} <- CfgItems] of
-              [_ | _] = Allow ->
-                  erjik_lib:flatten_ip_pool(Allow);
+              [_ | _] = Allow0 ->
+                  Allow = erjik_lib:flatten_ip_pool(Allow0),
+                  logcfg(?CFG_ALLOW, Allow),
+                  Allow;
               _ -> set_default(?CFG_ALLOW)
           end},
          {?CFG_DENY,
           case [V || {?CFG_DENY, V} <- CfgItems] of
-              [_ | _] = Deny ->
-                  erjik_lib:flatten_ip_pool(Deny);
+              [_ | _] = Deny0 ->
+                  Deny = erjik_lib:flatten_ip_pool(Deny0),
+                  logcfg(?CFG_DENY, Deny),
+                  Deny;
               _ -> set_default(?CFG_DENY)
           end},
          {?CFG_DEFAULT_POLICY,
           case [V || {?CFG_DEFAULT_POLICY, V} <- CfgItems] of
-              [DefaultPolicy | _] -> DefaultPolicy;
+              [DefaultPolicy | _] ->
+                  logcfg(?CFG_DEFAULT_POLICY, DefaultPolicy),
+                  DefaultPolicy;
               _ -> set_default(?CFG_DEFAULT_POLICY)
           end},
          {?CFG_BIND_IP,
           case [V || {?CFG_BIND_IP, V} <- CfgItems] of
-              [BindIP | _] -> BindIP;
+              [BindIP | _] ->
+                  logcfg(?CFG_BIND_IP, BindIP),
+                  BindIP;
               _ -> set_default(?CFG_BIND_IP)
           end},
          {?CFG_BIND_PORT,
           case [V || {?CFG_BIND_PORT, V} <- CfgItems] of
-              [BindPort | _] -> BindPort;
+              [BindPort | _] ->
+                  logcfg(?CFG_BIND_PORT, BindPort),
+                  BindPort;
               _ -> set_default(?CFG_BIND_PORT)
           end},
          {?CFG_WWW_ROOT,
           case [V || {?CFG_WWW_ROOT, V} <- CfgItems] of
-              [WwwRoot | _] -> WwwRoot;
+              [WwwRoot | _] ->
+                  logcfg(?CFG_WWW_ROOT, WwwRoot),
+                  WwwRoot;
               _ -> set_default(?CFG_WWW_ROOT)
           end},
          {?CFG_CLASS_NAMES, []}],
@@ -367,12 +387,40 @@ apply_config({Config, Classes}) ->
 %% ----------------------------------------------------------------------
 %% low level parsers and data processing tools
 
+logcfg(Key, Value) ->
+    ?loginf(
+       "~w> config: '~w' set to: ~s",
+       [?MODULE, Key, cfg_to_list(Key, Value)]).
+
 set_default(Key) ->
     Value = get_default_value(Key),
     ?loginf(
-       "~w> config: '~w' set to default: ~9999p",
-       [?MODULE, Key, Value]),
+       "~w> config: '~w' set to default: ~s",
+       [?MODULE, Key, cfg_to_list(Key, Value)]),
     Value.
+
+cfg_to_list(?CFG_LOGLEVEL, LogLevel) -> atom_to_list(LogLevel);
+cfg_to_list(?CFG_IP_DENY_REDIRECT, URL) -> URL;
+cfg_to_list(?CFG_ORDER, Order) ->
+    string:join([atom_to_list(A) || A <- Order], ",");
+cfg_to_list(?CFG_PRIVILEGED, []) -> "none";
+cfg_to_list(?CFG_PRIVILEGED, IpRange) ->
+    erjik_lib:ip_pool_to_list(IpRange);
+cfg_to_list(?CFG_ALLOW, []) -> "none";
+cfg_to_list(?CFG_ALLOW, IpRange) ->
+    erjik_lib:ip_pool_to_list(IpRange);
+cfg_to_list(?CFG_DENY, []) -> "none";
+cfg_to_list(?CFG_DENY, IpRange) ->
+    erjik_lib:ip_pool_to_list(IpRange);
+cfg_to_list(?CFG_DEFAULT_POLICY, DefaultPolicy) ->
+    atom_to_list(DefaultPolicy);
+cfg_to_list(?CFG_BIND_IP, BindIP) ->
+    erjik_lib:ip_to_list(BindIP);
+cfg_to_list(?CFG_BIND_PORT, BindPort) ->
+    integer_to_list(BindPort);
+cfg_to_list(?CFG_WWW_ROOT, WwwRoot) -> WwwRoot;
+cfg_to_list(_Key, Term) ->
+    lists:flatten(io_lib:format("~9999999p", [Term])).
 
 read_blacklist(Filename) ->
     case file:read_file(Filename) of
@@ -450,6 +498,15 @@ parse_val_(?CFG_BIND_PORT, String) ->
     true = 0 < Int andalso Int < 16#ffff,
     {ok, Int};
 parse_val_(?CFG_WWW_ROOT, String) ->
+    {ok, String};
+parse_val_({class, [_ | _] = _ClassName, ?CFG_CLASS_DOMAINS},
+           [_ | _] = String) ->
+    {ok, String};
+parse_val_({class, [_ | _] = _ClassName, ?CFG_CLASS_REGEXPS},
+           [_ | _] = String) ->
+    {ok, String};
+parse_val_({class, [_ | _] = _ClassName, ?CFG_CLASS_REDIRECT},
+           [_ | _] = String) ->
     {ok, String}.
 
 parse_ip_range(String) ->
