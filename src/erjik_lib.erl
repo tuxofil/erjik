@@ -5,9 +5,15 @@
 
 -module(erjik_lib).
 
-%% string utilities
 -export(
-   [is_string/1,
+   [challenge/2,
+    pmap/2
+   ]).
+
+%% list and string utilities
+-export(
+   [split_by_len/2,
+    is_string/1,
     uniq/1,
     strip/2,
     list_to_atom/2,
@@ -85,8 +91,101 @@
 %% API functions
 %% ----------------------------------------------------------------------
 
+%% @doc Like lists:map/2, but:
+%%      1. spawns each fun in separate process;
+%%      2. returns only result of first successfully finished fun
+%%         (rest of processes spawned will be killed).
+%%      If supplied list is empty or no functions finished normally,
+%%      it will return 'undefined' atom.
+%%      Example:
+%%        - challenge(fun(T) -> timer:sleep(T), T end, [2000, 1000, 3000])
+%%          will return {ok, 1000};
+%%        - challenge(fun(_) -> throw(oops) end, [1, 2, 3, 4])
+%%          will return 'undefined'.
+%% @spec challenge(Fun, List) -> {ok, B} | undefined
+%%     Fun = fun(A) -> B,
+%%     List = [A],
+%%     A = term(),
+%%     B = term()
+challenge(_Fun, []) -> undefined;
+challenge(Fun, [_ | _] = List) when is_function(Fun, 1) ->
+    {Pid, MonitorRef} =
+        spawn_monitor(
+          fun() ->
+                  process_flag(trap_exit, true),
+                  challenge_loop(
+                    sets:from_list(
+                      lists:map(
+                        fun(Elem) ->
+                                spawn_link(
+                                  fun() ->
+                                          exit({'#chall', Fun(Elem)})
+                                  end)
+                        end, List)))
+          end),
+    receive
+        {'DOWN', MonitorRef, process, Pid, {ok, _Value} = Ok} -> Ok;
+        {'DOWN', MonitorRef, process, Pid, _Reason} -> undefined
+    end.
+challenge_loop(Workers) ->
+    case sets:size(Workers) of
+        0 -> exit(no_answers);
+        _ -> nop
+    end,
+    receive
+        {'EXIT', Pid, Reason} ->
+            case sets:is_element(Pid, Workers) of
+                true ->
+                    case Reason of
+                        {'#chall', Value} ->
+                            exit({ok, Value});
+                        _ ->
+                            challenge_loop(
+                              sets:del_element(Pid, Workers))
+                    end;
+                _ -> challenge_loop(Workers)
+            end;
+        _ -> challenge_loop(Workers)
+    end.
+
+%% @doc Like lists:map/2, but each fun will be applied in parallel.
+%%      Results order will be preserved.
+%% @spec pmap(Fun, List1) -> List2
+%%     Fun = fun(A) -> B,
+%%     List1 = [A],
+%%     List2 = [B],
+%%     A = term(),
+%%     B = term()
+pmap(Fun, List) ->
+    Master = self(),
+    [receive
+         {Pid, Result} ->
+             Result
+     end ||
+        Pid <-
+            [spawn(
+               fun() ->
+                       Master ! {self(), (catch Fun(Elem))}
+               end) || Elem <- List]].
+
 %% ----------------------------------------------------------------------
-%% string utilities
+%% list and string utilities
+
+%% @doc Splits apart List to chunks of Len length.
+%% @spec split_by_len(List, Len) -> ListOfLists
+%%     List = list(),
+%%     Len = integer(),
+%%     ListOfLists = list()
+split_by_len(List, Len) when is_list(List), is_integer(Len), Len > 0 ->
+    split_by_len(Len, List, Len, [], []).
+split_by_len(Len, Source, 0, List, Lists) ->
+    split_by_len(Len, Source, Len, [], [lists:reverse(List) | Lists]);
+split_by_len(Len, [H | Tail], N, List, Lists) ->
+    split_by_len(Len, Tail, N - 1, [H | List], Lists);
+split_by_len(_, [], _, [], Lists) ->
+    lists:reverse(Lists);
+split_by_len(Len, [], N, [_ | _] = List, Lists) ->
+    split_by_len(Len, [], N, [], [lists:reverse(List) | Lists]).
 
 %% @doc Return true if supplied term is plain ASCII text.
 %% @spec is_string(term()) -> boolean()
