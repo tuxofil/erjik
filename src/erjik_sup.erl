@@ -41,6 +41,10 @@ init(_Args) ->
        {erjik_cfg, {erjik_cfg, start_link, []},
         permanent, 100, worker, [erjik_cfg]},
        
+       %% regexps keeper
+       {erjik_re, {erjik_re, start_link, []},
+        permanent, 100, worker, [erjik_re]},
+
        %% httpd
        {erjik_httpd, {erjik_httpd, start_link, []},
         permanent, 100, worker, [erjik_httpd]},

@@ -14,11 +14,13 @@
                   erjik_cfg,
                   erjik_log,
                   erjik_srv,
+                  erjik_re,
                   erjik_httpd
                  ]},
   {registered,   [erjik_log,
                   erjik_cfg,
                   erjik_srv,
+                  erjik_re,
                   erjik_httpd
                  ]},
   {applications, []},

@@ -12,6 +12,7 @@
    [start_link/0,
     get/1,
     classify/1,
+    regexps/0,
     hup/0
    ]).
 
@@ -64,21 +65,26 @@ classify(URL) ->
                     IP when is_tuple(IP) ->
                         {erjik_lib:ip_to_list(IP), true}
                 end,
-            classify(
-              URL, Hostname, IsIP,
-              ?MODULE:get(?CFG_CLASS_NAMES));
+            case classify(URL, Hostname, IsIP) of
+                {ok, ClassName} ->
+                    case get_class_redirect_url(ClassName) of
+                        {ok, RedirectURL} ->
+                            {ok, ClassName, RedirectURL};
+                        _ -> undefined
+                    end;
+                _ -> undefined
+            end;
         _ -> undefined
     end.
-classify(_URL, _Hostname, _IsIP, []) -> undefined;
-classify(URL, Hostname, IsIP, [{ClassName, RedirectURL} | Tail]) ->
-    case classify_hostname(ClassName, Hostname, IsIP) of
-        true -> {ok, ClassName, RedirectURL};
-        _ ->
-            case classify_url(ClassName, URL) of
-                true -> {ok, ClassName, RedirectURL};
-                _ ->
-                    classify(URL, Hostname, IsIP, Tail)
-            end
+
+%% @doc Return all regexps defined in configurations.
+%% @spec regexps() -> List
+%%     List = [{ClassName, Regexps}],
+%%     ClassName = string(),
+%%     Regexps = [string()]
+regexps() ->
+    try ets:tab2list(?FAC_REGEXPS)
+    catch _:_ -> []
     end.
 
 %% @doc Sends 'reconfig' signal to configuration facility process.
@@ -168,6 +174,7 @@ read() ->
         parse_config(Content))),
     ?loginf("~w> reconfig done", [?MODULE]),
     catch erjik_log:hup(),
+    catch erjik_re:hup(),
     catch erjik_srv:hup(),
     catch erjik_httpd:hup(),
     ok.
@@ -187,7 +194,6 @@ get_default_value(?CFG_DEFAULT_POLICY) -> ?CFG_ALLOW;
 get_default_value(?CFG_BIND_IP) -> {127,0,0,1};
 get_default_value(?CFG_BIND_PORT) -> 8888;
 get_default_value(?CFG_WWW_ROOT) -> "./www/";
-get_default_value(?CFG_CLASS_NAMES) -> [];
 get_default_value(_) -> undefined.
 
 %% @doc Returns parsed all valid key-value pairs from
@@ -313,8 +319,7 @@ assemble_config(CfgItems) ->
                   logcfg(?CFG_WWW_ROOT, WwwRoot),
                   WwwRoot;
               _ -> set_default(?CFG_WWW_ROOT)
-          end},
-         {?CFG_CLASS_NAMES, []}],
+          end}],
     %% read blacklists...
     Classes0 =
         lists:map(
@@ -371,17 +376,14 @@ apply_config({Config, Classes}) ->
     ets:delete_all_objects(?FAC_DOMAINS),
     ets:delete_all_objects(?FAC_REGEXPS),
     lists:foreach(
-      fun({ClassName, Domains, Regexps, _URL}) ->
+      fun({ClassName, Domains, Regexps, URL}) ->
               ets:insert(
                 ?FAC_DOMAINS,
-                [{{ClassName, D}, ok} || D <- Domains]),
+                [{{url, ClassName}, URL} |
+                 [{D, ClassName} || D <- Domains]]),
               ets:insert(?FAC_REGEXPS, {ClassName, Regexps})
       end, Classes),
-    ClassNames = [{N, U} || {N, _, _, U} <- Classes],
-    ets:insert(
-      ?FAC_CONFIGS,
-      [{?CFG_DEFAULT_POLICY, DefaultPolicy},
-       {?CFG_CLASS_NAMES, ClassNames}]),
+    ets:insert(?FAC_CONFIGS, {?CFG_DEFAULT_POLICY, DefaultPolicy}),
     ok.
 
 %% ----------------------------------------------------------------------
@@ -517,33 +519,37 @@ parse_ip_range(String) ->
         _ -> erjik_lib:list_to_ip_range(String)
     end.
 
-classify_hostname(ClassName, StrIP, true) ->
-    case ets:lookup(?FAC_DOMAINS, {ClassName, StrIP}) of
-        [_] -> true;
-        _ -> false
-    end;
-classify_hostname(ClassName, Domain, _) ->
-    classify_domain(
-      ClassName, lists:reverse(string:tokens(Domain, "."))).
+%% ----------------------------------------------------------------------
+%% URL classification routines
 
-classify_domain(ClassName, [_ | Tail] = Tokens) ->
+classify(URL, Hostname, IsIP) ->
+    case classify_(URL, Hostname, IsIP) of
+        {ok, _ClassName} = Ok -> Ok;
+        _ ->
+            case erjik_re:match(URL) of
+                {ok, _ClassName} = Ok -> Ok;
+                _ -> undefined
+            end
+    end.
+classify_(_URL, StrIP, true) ->
+    case ets:lookup(?FAC_DOMAINS, StrIP) of
+        [{_, ClassName}] -> {ok, ClassName};
+        _ -> undefined
+    end;
+classify_(_URL, Domain, _IsIP = false) ->
+    classify_domain(lists:reverse(string:tokens(Domain, "."))).
+
+classify_domain([_ | Tail] = Tokens) ->
     Domain = string:join(lists:reverse(Tokens), "."),
-    case ets:lookup(?FAC_DOMAINS, {ClassName, Domain}) of
-        [_] -> true;
-        _ -> classify_domain(ClassName, Tail)
+    case ets:lookup(?FAC_DOMAINS, Domain) of
+        [{_, ClassName}] -> {ok, ClassName};
+        _ -> classify_domain(Tail)
     end;
-classify_domain(_, _) -> false.
+classify_domain(_) -> undefined.
 
-classify_url(ClassName, URL) ->
-    case ets:lookup(?FAC_REGEXPS, ClassName) of
-        [{_, [_ | _] = List}] ->
-            lists:any(
-              fun(Regexp) ->
-                      case re:run(URL, Regexp, []) of
-                          {match, _} -> true;
-                          _ -> false
-                      end
-              end, List);
-        _ -> false
+get_class_redirect_url(ClassName) ->
+    case ets:lookup(?FAC_DOMAINS, {url, ClassName}) of
+        [{_, [_ | _] = URL}] -> {ok, URL};
+        _ -> undefined
     end.
 

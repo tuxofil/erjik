@@ -25,8 +25,6 @@
          ?CFG_ORDER, ?CFG_IP_DENY_REDIRECT, ?CFG_DEFAULT_POLICY,
          ?CFG_BIND_IP, ?CFG_BIND_PORT, ?CFG_WWW_ROOT]).
 
--define(CFG_CLASS_NAMES, class_names).
-
 -define(CFG_CLASS_DOMAINS, domains).
 -define(CFG_CLASS_REGEXPS, regexps).
 -define(CFG_CLASS_REDIRECT, redirect).
