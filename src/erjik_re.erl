@@ -103,9 +103,12 @@ do_reconfig(State) ->
            true ->
                 ChunkLenTrunc + 1
         end,
-    State#state{
-      regexps = erjik_lib:split_by_len(List, ChunkLen)
-     }.
+    if Len == 0 -> State#state{regexps = []};
+       true ->
+            State#state{
+              regexps = erjik_lib:split_by_len(List, ChunkLen)
+             }
+    end.
 
 do_match(URL, ListOfLists) ->
     erjik_lib:challenge(
