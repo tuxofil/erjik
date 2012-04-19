@@ -13,6 +13,7 @@
     get/1,
     classify/1,
     regexps/0,
+    mime_type/1,
     hup/0,
     state/0
    ]).
@@ -27,6 +28,9 @@
 -define(FAC_CONFIGS, erjik_fac_configs).
 -define(FAC_DOMAINS, erjik_fac_domains).
 -define(FAC_REGEXPS, erjik_fac_regexps).
+-define(FAC_MIME_TYPES, erjik_fac_mime_types).
+
+-define(default_mime_type, "application/octet-stream").
 
 %% ----------------------------------------------------------------------
 %% API functions
@@ -85,6 +89,25 @@ regexps() ->
     catch _:_ -> []
     end.
 
+%% @doc Resolves mime type for supplied filename by its suffix.
+%% @spec mime_type(Filename) -> MimeType
+%%     Filename = string(),
+%%     MimeType = string()
+mime_type(Filename) ->
+    case lists:reverse(
+           string:tokens(
+             filename:basename(Filename), ".")) of
+        [Ext, _ | _] ->
+            LoweredExt = string:to_lower(Ext),
+            try ets:lookup(?FAC_MIME_TYPES, LoweredExt) of
+                [{_, MimeType} | _] -> MimeType;
+                _ -> ?default_mime_type
+            catch
+                _:_ -> ?default_mime_type
+            end;
+        _ -> ?default_mime_type
+    end.
+
 %% @doc Sends 'reconfig' signal to configuration facility process.
 %% @spec hup() -> ok
 hup() ->
@@ -108,7 +131,8 @@ state() ->
 init(_Args) ->
     ets:new(?FAC_CONFIGS, [named_table]),
     ets:new(?FAC_DOMAINS, [named_table]),
-    ets:new(?FAC_REGEXPS, [named_table, ordered_set]),
+    ets:new(?FAC_REGEXPS, [named_table]),
+    ets:new(?FAC_MIME_TYPES, [named_table]),
     hup(),
     ?loginf("~w> started", [?MODULE]),
     {ok, #state{}}.
@@ -242,7 +266,7 @@ parse_config(String) ->
 
 %% @doc Processes parsed key-value pairs and produces final
 %%      application configuration database.
-%% @spec assemble_config(ConfigItems) -> {Config, Classes}
+%% @spec assemble_config(ConfigItems) -> {Config, Classes, MimeTypes}
 %%     ConfigItems = [ConfigItem],
 %%     ConfigItem = {Key, Value},
 %%         Key = atom() | {class, ClassName, ClassParam},
@@ -255,7 +279,10 @@ parse_config(String) ->
 %%     Classes = [{ClassName, Domains, Regexps, RedirectURL}],
 %%         Domains = [string()],
 %%         Regexps = [string()],
-%%         RedirectURL = undefined | string()
+%%         RedirectURL = undefined | string(),
+%%     MimeTypes = [{FileSuffix, MimeType}],
+%%         FileSuffix = string(),
+%%         MimeType = string()
 assemble_config(CfgItems) ->
     Config =
         [{?CFG_LOGLEVEL,
@@ -394,12 +421,12 @@ assemble_config(CfgItems) ->
                [?MODULE]);
         _ -> nop
     end,
-    {Config, Classes}.
+    {Config, Classes, read_mime_types()}.
 
 %% @doc Inserts configuration data to database (ETSes)
 %% @spec apply_config(Configs) -> ok
 %%     Configs = term()
-apply_config({Config, Classes}) ->
+apply_config({Config, Classes, MimeTypes}) ->
     IpDefaultPolicy = proplists:get_value(?CFG_IP_DEFAULT_POLICY, Config),
     UrlDefaultPolicy = proplists:get_value(?CFG_URL_DEFAULT_POLICY, Config),
     TmpConfig =
@@ -423,6 +450,8 @@ apply_config({Config, Classes}) ->
       ?FAC_CONFIGS,
       [{?CFG_IP_DEFAULT_POLICY, IpDefaultPolicy},
        {?CFG_URL_DEFAULT_POLICY, UrlDefaultPolicy}]),
+    ets:delete_all_objects(?FAC_MIME_TYPES),
+    ets:insert(?FAC_MIME_TYPES, MimeTypes),
     ok.
 
 %% ----------------------------------------------------------------------
@@ -567,6 +596,30 @@ parse_ip_range(String) ->
         "all" -> {ok, any};
         "none" -> {ok, none};
         _ -> erjik_lib:list_to_ip_range(String)
+    end.
+
+%% ----------------------------------------------------------------------
+%% mime types
+
+default_mime_types() ->
+    [{"text/html", ["htm", "html"]},
+     {"text/plain", ["txt"]},
+     {"text/css", ["css"]}].
+
+read_mime_types() ->
+    [{string:to_lower(Ext), string:to_lower(Name)} ||
+        {Name, List} <- read_mime_types_(),
+        Ext <- List].
+read_mime_types_() ->
+    Filename = erjik_cfg:get(?CFG_MIME_TYPES),
+    case erjik_lib:read_mime_types(Filename) of
+        {ok, List} -> List;
+        {error, Reason} ->
+            ?logerr(
+               "~w> failed to read mime types from \"~s\": ~9999p. "
+               "Default mime table will be used.",
+               [?MODULE, Filename, Reason]),
+            default_mime_types()
     end.
 
 %% ----------------------------------------------------------------------

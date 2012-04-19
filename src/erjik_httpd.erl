@@ -160,9 +160,6 @@ code_change(OldVsn, State, Extra) ->
 %% httpd callback functions
 %% ----------------------------------------------------------------------
 
--define(mime_text_plain, "text/plain").
--define(mime_text_html, "text/html").
-
 %% @hidden
 do(ModData) ->
     {RelFilename0, _} = split4pathNquery(ModData#mod.request_uri),
@@ -170,9 +167,7 @@ do(ModData) ->
     ?logdbg("~w> file requested: '~s'", [?MODULE, RelFilename]),
     Filename =
         filename:join(erjik_cfg:get(?CFG_WWW_ROOT), RelFilename),
-    MimeType =
-        %% todo: get mime type by filename suffix
-        ?mime_text_html,
+    MimeType = erjik_cfg:mime_type(Filename),
     case file:read_file_info(Filename) of
         {ok, FileInfo} ->
             Headers =
