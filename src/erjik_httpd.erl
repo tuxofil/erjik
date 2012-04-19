@@ -156,7 +156,8 @@ code_change(OldVsn, State, Extra) ->
 
 %% @hidden
 do(ModData) ->
-    {RelFilename, _} = split4pathNquery(ModData#mod.request_uri),
+    {RelFilename0, _} = split4pathNquery(ModData#mod.request_uri),
+    RelFilename = string:strip(RelFilename0, left, $/),
     Filename =
         filename:join(erjik_cfg:get(?CFG_WWW_ROOT), RelFilename),
     MimeType =
