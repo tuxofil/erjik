@@ -68,11 +68,8 @@ classify(URL) ->
                 end,
             case classify(URL, Hostname, IsIP) of
                 {ok, ClassName} ->
-                    case get_class_redirect_url(ClassName) of
-                        {ok, RedirectURL} ->
-                            {ok, ClassName, RedirectURL};
-                        _ -> undefined
-                    end;
+                    {ok, ClassName,
+                     get_class_redirect_url(ClassName)};
                 _ -> undefined
             end;
         _ -> undefined
@@ -579,10 +576,10 @@ classify_(_URL, StrIP, true) ->
         _ -> undefined
     end;
 classify_(_URL, Domain, _IsIP = false) ->
-    classify_domain(lists:reverse(string:tokens(Domain, "."))).
+    classify_domain(string:tokens(Domain, ".")).
 
 classify_domain([_ | Tail] = Tokens) ->
-    Domain = string:join(lists:reverse(Tokens), "."),
+    Domain = string:join(Tokens, "."),
     case ets:lookup(?FAC_DOMAINS, Domain) of
         [{_, ClassName}] -> {ok, ClassName};
         _ -> classify_domain(Tail)
@@ -591,7 +588,7 @@ classify_domain(_) -> undefined.
 
 get_class_redirect_url(ClassName) ->
     case ets:lookup(?FAC_DOMAINS, {url, ClassName}) of
-        [{_, [_ | _] = URL}] -> {ok, URL};
+        [{_, [_ | _] = URL}] -> URL;
         _ -> undefined
     end.
 
