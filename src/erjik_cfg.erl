@@ -204,6 +204,7 @@ get_default_value(?CFG_URL_DEFAULT_POLICY) -> ?CFG_ALLOW;
 get_default_value(?CFG_BIND_IP) -> {127,0,0,1};
 get_default_value(?CFG_BIND_PORT) -> 8888;
 get_default_value(?CFG_WWW_ROOT) -> "./www/";
+get_default_value(?CFG_MIME_TYPES) -> "/etc/mime.types";
 get_default_value(_) -> undefined.
 
 %% @doc Returns parsed all valid key-value pairs from
@@ -343,6 +344,13 @@ assemble_config(CfgItems) ->
                   logcfg(?CFG_WWW_ROOT, WwwRoot),
                   WwwRoot;
               _ -> set_default(?CFG_WWW_ROOT)
+          end},
+         {?CFG_MIME_TYPES,
+          case [V || {?CFG_MIME_TYPES, V} <- CfgItems] of
+              [MimeTypes | _] ->
+                  logcfg(?CFG_MIME_TYPES, MimeTypes),
+                  MimeTypes;
+              _ -> set_default(?CFG_MIME_TYPES)
           end}],
     %% read blacklists...
     Classes0 =
@@ -455,6 +463,7 @@ cfg_to_list(?CFG_BIND_IP, BindIP) ->
 cfg_to_list(?CFG_BIND_PORT, BindPort) ->
     integer_to_list(BindPort);
 cfg_to_list(?CFG_WWW_ROOT, WwwRoot) -> WwwRoot;
+cfg_to_list(?CFG_MIME_TYPES, MimeTypes) -> MimeTypes;
 cfg_to_list(_Key, Term) ->
     lists:flatten(io_lib:format("~9999999p", [Term])).
 
@@ -539,6 +548,8 @@ parse_val_(?CFG_BIND_PORT, String) ->
     true = 0 < Int andalso Int < 16#ffff,
     {ok, Int};
 parse_val_(?CFG_WWW_ROOT, String) ->
+    {ok, String};
+parse_val_(?CFG_MIME_TYPES, [_ | _] = String) ->
     {ok, String};
 parse_val_({class, [_ | _] = _ClassName, ?CFG_CLASS_DOMAINS},
            [_ | _] = String) ->

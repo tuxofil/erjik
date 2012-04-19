@@ -21,11 +21,12 @@
 -define(CFG_BIND_IP, bind_ip).
 -define(CFG_BIND_PORT, bind_port).
 -define(CFG_WWW_ROOT, www_root).
+-define(CFG_MIME_TYPES, mime_types).
 
 -define(CFGS_SIMPLE,
         [?CFG_LOGLEVEL, ?CFG_PRIVILEGED, ?CFG_ALLOW, ?CFG_DENY,
          ?CFG_ORDER, ?CFG_IP_DENY_REDIRECT,
-         ?CFG_URL_DENY_REDIRECT,
+         ?CFG_URL_DENY_REDIRECT, ?CFG_MIME_TYPES,
          ?CFG_IP_DEFAULT_POLICY, ?CFG_URL_DEFAULT_POLICY,
          ?CFG_BIND_IP, ?CFG_BIND_PORT, ?CFG_WWW_ROOT]).
 
