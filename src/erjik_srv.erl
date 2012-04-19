@@ -88,7 +88,7 @@ parse_request(Request) ->
             end;
         _ ->
             ?logerr(
-               "~w> malformed request: \"~s\"",
+               "~w> malformed request: ~99999p",
                [?MODULE, Request]),
             error
     end.
