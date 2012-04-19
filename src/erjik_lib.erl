@@ -7,7 +7,8 @@
 
 -export(
    [challenge/2,
-    pmap/2
+    pmap/2,
+    read_mime_types/1
    ]).
 
 %% list and string utilities
@@ -167,6 +168,45 @@ pmap(Fun, List) ->
                fun() ->
                        Master ! {self(), (catch Fun(Elem))}
                end) || Elem <- List]].
+
+%% @doc Reads and parses mime types file.
+%% @spec read_mime_types(Filename) -> {ok, List} | {error, Reason}
+%%     Filename = string(),
+%%     List = [{MimeType, Extensions}],
+%%     MimeType = string(),
+%%     Extensions = [string()],
+%%     Reason = term()
+read_mime_types(Filename) ->
+    case file:open(Filename, [read, raw, read_ahead]) of
+        {ok, FH} ->
+            Result =
+                try read_mime_types_loop(FH, [])
+                catch
+                    Type:Reason ->
+                        {error,
+                         {Type, Reason,
+                          erlang:get_stacktrace()}}
+                end,
+            catch file:close(FH),
+            Result;
+        Error -> Error
+    end.
+read_mime_types_loop(FH, Results) ->
+    case file:read_line(FH) of
+        eof ->
+            {ok, lists:reverse(Results)};
+        {ok, Line} ->
+            case strip(Line, " \t\r\n") of
+                [C | _] = Stripped when C /= $# ->
+                    [MimeType | Extensions] =
+                        string:tokens(Stripped, " \t"),
+                    read_mime_types_loop(
+                      FH, [{MimeType, Extensions} | Results]);
+                _ ->
+                    read_mime_types_loop(FH, Results)
+            end;
+        Error -> Error
+    end.
 
 %% ----------------------------------------------------------------------
 %% list and string utilities
