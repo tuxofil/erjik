@@ -197,7 +197,7 @@ get_default_value(?CFG_LOGLEVEL) -> ?LOGLEVEL_WARNING;
 get_default_value(?CFG_IP_DENY_REDIRECT) ->
     "http://127.0.0.1:8888/denied.html";
 get_default_value(?CFG_ORDER) -> [?CFG_ALLOW, ?CFG_DENY];
-get_default_value(?CFG_PRIVILEGED) -> [any];
+get_default_value(?CFG_PRIVILEGED) -> [];
 get_default_value(?CFG_ALLOW) -> [any];
 get_default_value(?CFG_DENY) -> [];
 get_default_value(?CFG_DEFAULT_POLICY) -> ?CFG_ALLOW;
