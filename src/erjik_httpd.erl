@@ -94,7 +94,7 @@ handle_info(Request, State) ->
 
 %% @hidden
 handle_call(state, _From, State) ->
-    {reply, State};
+    {reply, {ok, State}, State};
 handle_call(Request, From, State) ->
     ?logwrn("~w> unknown call ~9999p from ~9999p",
             [?MODULE, Request, From]),

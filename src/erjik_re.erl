@@ -75,7 +75,7 @@ handle_call({match, URL}, From, State) ->
       end),
     {noreply, State};
 handle_call(state, _From, State) ->
-    {reply, State};
+    {reply, {ok, State}, State};
 handle_call(_Request, _From, State) ->
     {noreply, State}.
 

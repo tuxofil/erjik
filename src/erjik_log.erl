@@ -97,7 +97,7 @@ handle_info(_Request, State) ->
 
 %% @hidden
 handle_call(state, _From, State) ->
-    {reply, State};
+    {reply, {ok, State}, State};
 handle_call(_Request, _From, State) ->
     {noreply, State}.
 
