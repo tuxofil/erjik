@@ -158,6 +158,7 @@ code_change(OldVsn, State, Extra) ->
 do(ModData) ->
     {RelFilename0, _} = split4pathNquery(ModData#mod.request_uri),
     RelFilename = string:strip(RelFilename0, left, $/),
+    ?logdbg("~w> file requested: '~s'", [?MODULE, RelFilename]),
     Filename =
         filename:join(erjik_cfg:get(?CFG_WWW_ROOT), RelFilename),
     MimeType =
@@ -184,9 +185,11 @@ do(ModData) ->
                       {mime_type, MimeType} |
                       ModData#mod.data]};
                 {error, _Reason} ->
+                    ?logdbg("~w> '~s' not found", [?MODULE, Filename]),
                     {break, [{response, {404, "Not Found"}}]}
             end;
         {error, _Reason} ->
+            ?logdbg("~w> '~s' not found", [?MODULE, Filename]),
             {break, [{response, {404, "Not Found"}}]}
     end.
 
