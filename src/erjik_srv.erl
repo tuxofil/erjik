@@ -54,7 +54,7 @@ handle_request(Request) ->
                     ?logdbg(
                        "~w> pass ~s to ~s",
                        [?MODULE, erjik_lib:ip_to_list(IP), URL]),
-                    Request;
+                    ReqID ++ " " ++ URL ++ "\n";
                 _:{redirect, NewURL} ->
                     ?logdbg(
                        "~w> redirecting ~s to ~s",
