@@ -121,7 +121,7 @@ process(URL, IP) ->
                       _ -> false
                   end
           end, erjik_cfg:get(?CFG_ORDER)),
-    case {erjik_cfg:get(?CFG_DEFAULT_POLICY), Matched} of
+    case {erjik_cfg:get(?CFG_IP_DEFAULT_POLICY), Matched} of
         {?CFG_DENY, false} ->
             %% no matches found but default policy is 'deny'
             throw({redirect,
@@ -136,6 +136,11 @@ process(URL, IP) ->
         {ok, _ClassName, _} ->
             ok;
         _ ->
-            ok
+            case erjik_cfg:get(?CFG_URL_DEFAULT_POLICY) of
+                ?CFG_DENY ->
+                    {redirect,
+                     erjik_cfg:get(?CFG_URL_DENY_REDIRECT)};
+                _ -> ok
+            end
     end.
 

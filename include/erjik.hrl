@@ -11,18 +11,22 @@
 %% various configuration tokens
 -define(CFG_LOGLEVEL, loglevel).
 -define(CFG_IP_DENY_REDIRECT, ip_deny_redirect).
+-define(CFG_URL_DENY_REDIRECT, url_deny_redirect).
 -define(CFG_ORDER, order).
 -define(CFG_PRIVILEGED, privileged).
 -define(CFG_ALLOW, allow).
 -define(CFG_DENY, deny).
--define(CFG_DEFAULT_POLICY, default_policy).
+-define(CFG_IP_DEFAULT_POLICY, ip_default_policy).
+-define(CFG_URL_DEFAULT_POLICY, url_default_policy).
 -define(CFG_BIND_IP, bind_ip).
 -define(CFG_BIND_PORT, bind_port).
 -define(CFG_WWW_ROOT, www_root).
 
 -define(CFGS_SIMPLE,
         [?CFG_LOGLEVEL, ?CFG_PRIVILEGED, ?CFG_ALLOW, ?CFG_DENY,
-         ?CFG_ORDER, ?CFG_IP_DENY_REDIRECT, ?CFG_DEFAULT_POLICY,
+         ?CFG_ORDER, ?CFG_IP_DENY_REDIRECT,
+         ?CFG_URL_DENY_REDIRECT,
+         ?CFG_IP_DEFAULT_POLICY, ?CFG_URL_DEFAULT_POLICY,
          ?CFG_BIND_IP, ?CFG_BIND_PORT, ?CFG_WWW_ROOT]).
 
 -define(CFG_CLASS_DOMAINS, domains).

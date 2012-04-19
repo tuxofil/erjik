@@ -195,12 +195,15 @@ read() ->
 %%     Value = term()
 get_default_value(?CFG_LOGLEVEL) -> ?LOGLEVEL_WARNING;
 get_default_value(?CFG_IP_DENY_REDIRECT) ->
-    "http://127.0.0.1:8888/denied.html";
+    "http://127.0.0.1:8888/denied-by-ip.html";
+get_default_value(?CFG_URL_DENY_REDIRECT) ->
+    "http://127.0.0.1:8888/denied-by-url.html";
 get_default_value(?CFG_ORDER) -> [?CFG_ALLOW, ?CFG_DENY];
 get_default_value(?CFG_PRIVILEGED) -> [];
 get_default_value(?CFG_ALLOW) -> [any];
 get_default_value(?CFG_DENY) -> [];
-get_default_value(?CFG_DEFAULT_POLICY) -> ?CFG_ALLOW;
+get_default_value(?CFG_IP_DEFAULT_POLICY) -> ?CFG_ALLOW;
+get_default_value(?CFG_URL_DEFAULT_POLICY) -> ?CFG_ALLOW;
 get_default_value(?CFG_BIND_IP) -> {127,0,0,1};
 get_default_value(?CFG_BIND_PORT) -> 8888;
 get_default_value(?CFG_WWW_ROOT) -> "./www/";
@@ -271,6 +274,13 @@ assemble_config(CfgItems) ->
                   IpDenyRedirect;
               _ -> set_default(?CFG_IP_DENY_REDIRECT)
           end},
+         {?CFG_URL_DENY_REDIRECT,
+          case [V || {?CFG_URL_DENY_REDIRECT, [_ | _] = V} <- CfgItems] of
+              [UrlDenyRedirect | _] ->
+                  logcfg(?CFG_URL_DENY_REDIRECT, UrlDenyRedirect),
+                  UrlDenyRedirect;
+              _ -> set_default(?CFG_URL_DENY_REDIRECT)
+          end},
          {?CFG_ORDER,
           case [V || {?CFG_ORDER, V} <- CfgItems] of
               [Order | _] ->
@@ -302,12 +312,19 @@ assemble_config(CfgItems) ->
                   Deny;
               _ -> set_default(?CFG_DENY)
           end},
-         {?CFG_DEFAULT_POLICY,
-          case [V || {?CFG_DEFAULT_POLICY, V} <- CfgItems] of
-              [DefaultPolicy | _] ->
-                  logcfg(?CFG_DEFAULT_POLICY, DefaultPolicy),
-                  DefaultPolicy;
-              _ -> set_default(?CFG_DEFAULT_POLICY)
+         {?CFG_IP_DEFAULT_POLICY,
+          case [V || {?CFG_IP_DEFAULT_POLICY, V} <- CfgItems] of
+              [IpDefaultPolicy | _] ->
+                  logcfg(?CFG_IP_DEFAULT_POLICY, IpDefaultPolicy),
+                  IpDefaultPolicy;
+              _ -> set_default(?CFG_IP_DEFAULT_POLICY)
+          end},
+         {?CFG_URL_DEFAULT_POLICY,
+          case [V || {?CFG_URL_DEFAULT_POLICY, V} <- CfgItems] of
+              [UrlDefaultPolicy | _] ->
+                  logcfg(?CFG_URL_DEFAULT_POLICY, UrlDefaultPolicy),
+                  UrlDefaultPolicy;
+              _ -> set_default(?CFG_URL_DEFAULT_POLICY)
           end},
          {?CFG_BIND_IP,
           case [V || {?CFG_BIND_IP, V} <- CfgItems] of
@@ -378,10 +395,14 @@ assemble_config(CfgItems) ->
 %% @spec apply_config(Configs) -> ok
 %%     Configs = term()
 apply_config({Config, Classes}) ->
-    DefaultPolicy = proplists:get_value(?CFG_DEFAULT_POLICY, Config),
+    IpDefaultPolicy = proplists:get_value(?CFG_IP_DEFAULT_POLICY, Config),
+    UrlDefaultPolicy = proplists:get_value(?CFG_URL_DEFAULT_POLICY, Config),
     TmpConfig =
-        [{?CFG_DEFAULT_POLICY, ?CFG_ALLOW} |
-         [I || {K, _} = I <- Config, K /= ?CFG_DEFAULT_POLICY]],
+        [{?CFG_IP_DEFAULT_POLICY, ?CFG_ALLOW},
+         {?CFG_URL_DEFAULT_POLICY, ?CFG_ALLOW} |
+         [I || {K, _} = I <- Config,
+               K /= ?CFG_IP_DEFAULT_POLICY,
+               K /= ?CFG_URL_DEFAULT_POLICY]],
     ets:insert(?FAC_CONFIGS, TmpConfig),
     ets:delete_all_objects(?FAC_DOMAINS),
     ets:delete_all_objects(?FAC_REGEXPS),
@@ -393,7 +414,10 @@ apply_config({Config, Classes}) ->
                  [{D, ClassName} || D <- Domains]]),
               ets:insert(?FAC_REGEXPS, {ClassName, Regexps})
       end, Classes),
-    ets:insert(?FAC_CONFIGS, {?CFG_DEFAULT_POLICY, DefaultPolicy}),
+    ets:insert(
+      ?FAC_CONFIGS,
+      [{?CFG_IP_DEFAULT_POLICY, IpDefaultPolicy},
+       {?CFG_URL_DEFAULT_POLICY, UrlDefaultPolicy}]),
     ok.
 
 %% ----------------------------------------------------------------------
@@ -413,6 +437,7 @@ set_default(Key) ->
 
 cfg_to_list(?CFG_LOGLEVEL, LogLevel) -> atom_to_list(LogLevel);
 cfg_to_list(?CFG_IP_DENY_REDIRECT, URL) -> URL;
+cfg_to_list(?CFG_URL_DENY_REDIRECT, URL) -> URL;
 cfg_to_list(?CFG_ORDER, Order) ->
     string:join([atom_to_list(A) || A <- Order], ",");
 cfg_to_list(?CFG_PRIVILEGED, []) -> "none";
@@ -424,7 +449,9 @@ cfg_to_list(?CFG_ALLOW, IpRange) ->
 cfg_to_list(?CFG_DENY, []) -> "none";
 cfg_to_list(?CFG_DENY, IpRange) ->
     erjik_lib:ip_pool_to_list(IpRange);
-cfg_to_list(?CFG_DEFAULT_POLICY, DefaultPolicy) ->
+cfg_to_list(?CFG_IP_DEFAULT_POLICY, DefaultPolicy) ->
+    atom_to_list(DefaultPolicy);
+cfg_to_list(?CFG_URL_DEFAULT_POLICY, DefaultPolicy) ->
     atom_to_list(DefaultPolicy);
 cfg_to_list(?CFG_BIND_IP, BindIP) ->
     erjik_lib:ip_to_list(BindIP);
@@ -489,7 +516,12 @@ parse_val_(?CFG_DENY, String) ->
     parse_ip_range(String);
 parse_val_(?CFG_IP_DENY_REDIRECT, [_ | _] = String) ->
     {ok, String};
-parse_val_(?CFG_DEFAULT_POLICY, String) ->
+parse_val_(?CFG_URL_DENY_REDIRECT, [_ | _] = String) ->
+    {ok, String};
+parse_val_(?CFG_IP_DEFAULT_POLICY, String) ->
+    erjik_lib:list_to_atom(
+      string:to_lower(String), [?CFG_ALLOW, ?CFG_DENY]);
+parse_val_(?CFG_URL_DEFAULT_POLICY, String) ->
     erjik_lib:list_to_atom(
       string:to_lower(String), [?CFG_ALLOW, ?CFG_DENY]);
 parse_val_(?CFG_ORDER, String) ->
