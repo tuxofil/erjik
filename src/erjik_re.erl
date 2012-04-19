@@ -126,7 +126,7 @@ do_match(URL, ListOfLists) ->
               matcher(URL, List)
       end, ListOfLists).
 
-matcher(_URL, []) -> throw(no_more_left);
+matcher(_URL, []) -> exit(no_more_left);
 matcher(URL, [{ClassName, Regexp} | Tail]) ->
     case re:run(URL, Regexp, []) of
         {match, _} -> ClassName;
