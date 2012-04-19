@@ -13,7 +13,8 @@
     get/1,
     classify/1,
     regexps/0,
-    hup/0
+    hup/0,
+    state/0
    ]).
 
 %% gen_server callback exports
@@ -92,6 +93,13 @@ regexps() ->
 hup() ->
     gen_server:cast(?MODULE, ?SIG_RECONFIG).
 
+%% @doc Return process state term.
+%% @hidden
+%% @spec state() -> {ok, State}
+%%     State = term()
+state() ->
+    gen_server:call(?MODULE, state).
+
 %% ----------------------------------------------------------------------
 %% Callback functions
 %% ----------------------------------------------------------------------
@@ -114,6 +122,8 @@ handle_info(Request, State) ->
     {noreply, State}.
 
 %% @hidden
+handle_call(state, _From, State) ->
+    {reply, State};
 handle_call(Request, From, State) ->
     ?logwrn("~w> unknown call ~9999p from ~9999p",
             [?MODULE, Request, From]),

@@ -11,7 +11,8 @@
 -export(
    [start_link/0,
     hup/0,
-    log/3
+    log/3,
+    state/0
    ]).
 
 %% gen_server callback exports
@@ -43,6 +44,13 @@ hup() ->
 log(Severity, Format, Args) ->
     catch ?MODULE ! {msg, now(), Severity, Format, Args},
     ok.
+
+%% @doc Return process state term.
+%% @hidden
+%% @spec state() -> {ok, State}
+%%     State = term()
+state() ->
+    gen_server:call(?MODULE, state).
 
 %% ----------------------------------------------------------------------
 %% gen_server callbacks
@@ -88,6 +96,8 @@ handle_info(_Request, State) ->
     {noreply, State}.
 
 %% @hidden
+handle_call(state, _From, State) ->
+    {reply, State};
 handle_call(_Request, _From, State) ->
     {noreply, State}.
 

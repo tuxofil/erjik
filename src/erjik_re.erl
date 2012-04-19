@@ -11,7 +11,8 @@
 -export(
    [start_link/0,
     hup/0,
-    match/1
+    match/1,
+    state/0
    ]).
 
 %% gen_server callback exports
@@ -41,6 +42,13 @@ hup() ->
 match(URL) ->
     gen_server:call(?MODULE, {match, URL}).
 
+%% @doc Return process state term.
+%% @hidden
+%% @spec state() -> {ok, State}
+%%     State = term()
+state() ->
+    gen_server:call(?MODULE, state).
+
 %% ----------------------------------------------------------------------
 %% gen_server callbacks
 %% ----------------------------------------------------------------------
@@ -66,6 +74,8 @@ handle_call({match, URL}, From, State) ->
                 do_match(URL, State#state.regexps))
       end),
     {noreply, State};
+handle_call(state, _From, State) ->
+    {reply, State};
 handle_call(_Request, _From, State) ->
     {noreply, State}.
 
