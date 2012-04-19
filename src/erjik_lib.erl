@@ -103,7 +103,7 @@
 %%        - challenge(fun(_) -> throw(oops) end, [1, 2, 3, 4])
 %%          will return 'undefined'.
 %% @spec challenge(Fun, List) -> {ok, B} | undefined
-%%     Fun = fun(A) -> B,
+%%     Fun = fun((A) -> B),
 %%     List = [A],
 %%     A = term(),
 %%     B = term()
@@ -151,7 +151,7 @@ challenge_loop(Workers) ->
 %% @doc Like lists:map/2, but each fun will be applied in parallel.
 %%      Results order will be preserved.
 %% @spec pmap(Fun, List1) -> List2
-%%     Fun = fun(A) -> B,
+%%     Fun = fun((A) -> B),
 %%     List1 = [A],
 %%     List2 = [B],
 %%     A = term(),
