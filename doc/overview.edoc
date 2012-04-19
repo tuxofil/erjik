@@ -1,0 +1,155 @@
+%%%-------------------------------------------------------------------
+%%% File    : overview.edoc
+%%% Author  : Aleksey Morarash <aleksey.morarash@gmail.com>
+%%% Created : 19 Apr 2012
+%%% License : FreeBSD
+%%% Description : Contents for 'overview' documentation page
+%%%               of erjik application
+%%%-------------------------------------------------------------------
+
+@author Aleksey Morarash <aleksey.morarash@gmail.com>
+@copyright 2012 Aleksey Morarash
+@version 0.2
+@title Welcome to erjik - Squid URL rewriter.
+@doc == Contents ==
+
+<ol>
+ <li>{@section Summary}</li>
+ <li>{@section License}</li>
+ <li>{@section Building}</li>
+ <li>{@section Installing}</li>
+ <li>{@section Squid configuration}</li>
+ <li>{@section Running}</li>
+ <li>{@section Advanced administration}</li>
+ <li>{@section Miscellaneous}
+  <ol>
+   <li>{@section Security considerations}</li>
+   <li>{@section Configuration file format}</li>
+   <li>{@section Server architecture}</li>
+   <li>{@section TODO list}</li>
+  </ol>
+ </li>
+</ol>
+
+== Summary ==
+
+erjik - is a multithreaded <a href='http://www.squid-cache.org/'>Squid</a>
+URL rewriter written on <a target="top" href="http://www.erlang.org/">Erlang</a>
+programming language.
+
+== License ==
+
+erjik uses FreeBSD License. You can found full license text on
+<a target="top" href="http://www.freebsd.org/copyright/freebsd-license.html">http://www.freebsd.org/copyright/freebsd-license.html</a>
+or in file LICENSE on the top of erjik sources tree.
+
+== Building ==
+
+Erlang must be installed to build and run erjik.
+You always can obtain latest Erlang version on
+<a target="top" href="http://www.erlang.org/download.html">Erlang download page</a>
+or use one provided by your software repository.
+
+erjik is developed and tested with Erlang R14A but probably
+will work with older Erlang versions.
+
+<code>$ make</code>
+
+on erjik top level directory of sources tree.
+
+== Installing ==
+
+<code>$ make install</code>
+
+on erjik top level directory of sources tree.
+
+== Squid configuration ==
+
+It`s more than simple:
+
+<pre><tt>
+# Specify erjik start script location
+url_rewrite_program /path/to/erjik/dir/run.sh
+# Enable multithreading between Squid and erjik
+url_rewrite_concurrency 1
+# How many instances of erjik will be started.
+# Because of multithreading one will be enough.
+url_rewrite_children 1
+</tt></pre>
+
+== Running ==
+
+Normally erjik must be started by Squid itself. See 'url_rewrite_program'
+configuration in your squid.conf.
+
+You can test erjik by command "./run.sh" in erjik top level
+directory. erjik will be started as foreground process.
+
+== Advanced administration ==
+
+erjik configuration defined in ./erjik.conf file. Path to it
+specified in './run.sh' script. You can change them if you need.
+
+To tell running server to re-read configuration file and reopen
+log file (needed to logrotate), run './hup.sh' script.
+
+To check if server is alive, run './ping.sh' script.
+
+== Miscellaneous ==
+
+=== Security considerations ===
+
+<ol>
+ <li>Do not run erjik under superuser privileges!</li>
+ <li>Be aware of launching erjik on host without firewall
+   configured (or protected by another firewall) because
+   Erlang nature permits to connect to Erlang node (found via
+   epmd portmapper) from any host at your network. Such
+   connection will allow execute ANY code with UID of erjik
+   server process.</li>
+</ol>
+
+=== Configuration file format ===
+
+Empty lines and lines with first meaning character '#' (comments)
+will be skipped. Comments can take only whole line. You can't
+comment only tail of line with configuration parameter.
+
+Configuration parameter value definition must look like key-value
+pair, separated by one or more spaces or tabs.
+
+Details for erjik existing configuration parameters you can
+found in ./erjik.conf configuration file in top directory of
+erjik source tree.
+
+=== Server architecture ===
+
+erjik application supervision tree:
+
+<pre><tt>
+            erjik_app
+          (application)
+                |
+      erjik_sup (supervisor)
+        |   |   |   |   |
+ erjik_log  |   |   |   |
+            |   |   |   |
+     erjik_cfg  |   |   |
+                |   |   |
+          erjik_re  |   |
+                    |   |
+           erjik_httpd  |
+                |       |
+                |      erjik_srv---\
+                |                  |
+        inets HTTPD engine      request
+                |               handler
+            arbitrary
+        connection handler
+</tt></pre><hr/>
+
+=== TODO list ===
+
+<pre>
+</pre>
+
