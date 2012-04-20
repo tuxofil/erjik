@@ -65,13 +65,14 @@ on erjik top level directory of sources tree.
 
 == Squid configuration ==
 
-It`s more than simple:
-
+It's more than simple:
 <pre><tt>
 # Specify erjik start script location
 url_rewrite_program /path/to/erjik/dir/run.sh
+
 # Enable multithreading between Squid and erjik
 url_rewrite_concurrency 1
+
 # How many instances of erjik will be started.
 # Because of multithreading one will be enough.
 url_rewrite_children 1
