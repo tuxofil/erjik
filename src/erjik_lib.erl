@@ -93,16 +93,20 @@
 %% ----------------------------------------------------------------------
 
 %% @doc Like lists:map/2, but:
-%%      1. spawns each fun in separate process;
-%%      2. returns only result of first successfully finished fun
-%%         (rest of processes spawned will be killed).
+%%      <ol>
+%%      <li>spawns each fun in separate process;</li>
+%%      <li>returns only result of first successfully finished fun
+%%         (rest of processes spawned will be killed).</li>
+%%      </ol>
 %%      If supplied list is empty or no functions finished normally,
 %%      it will return 'undefined' atom.
 %%      Example:
-%%        - challenge(fun(T) -> timer:sleep(T), T end, [2000, 1000, 3000])
-%%          will return {ok, 1000};
-%%        - challenge(fun(_) -> throw(oops) end, [1, 2, 3, 4])
-%%          will return 'undefined'.
+%%      <ul>
+%%      <li>challenge(fun(T) -> timer:sleep(T), T end, [2000, 1000, 3000])
+%%          will return {ok, 1000};</li>
+%%      <li>challenge(fun(_) -> throw(oops) end, [1, 2, 3, 4])
+%%          will return 'undefined'.</li>
+%%      </ul>
 %% @spec challenge(Fun, List) -> {ok, B} | undefined
 %%     Fun = fun((A) -> B),
 %%     List = [A],
