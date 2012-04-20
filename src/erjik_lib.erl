@@ -104,7 +104,7 @@
 %%      <ul>
 %%      <li>challenge(fun(T) -> timer:sleep(T), T end, [2000, 1000, 3000])
 %%          will return {ok, 1000};</li>
-%%      <li>challenge(fun(_) -> throw(oops) end, [1, 2, 3, 4])
+%%      <li>challenge(fun(_) -> exit(oops) end, [1, 2, 3, 4])
 %%          will return 'undefined'.</li>
 %%      </ul>
 %% @spec challenge(Fun, List) -> {ok, B} | undefined
