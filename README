@@ -12,7 +12,7 @@ Contents:
 -----------------------------------------------------------------
 1. SUMMARY
 
-ERJIK - mutithreaded URL rewriter for Squid proxy.
+ERJIK - multithreaded URL rewriter for Squid proxy.
 
 -----------------------------------------------------------------
 2. Goals
