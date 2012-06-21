@@ -37,6 +37,14 @@ erjik - is a multithreaded <a href='http://www.squid-cache.org/'>Squid</a>
 URL rewriter written on <a target="top" href="http://www.erlang.org/">Erlang</a>
 programming language.
 
+erjik created with following in mind:
+<ul>
+ <li>multithreaded request processing;</li>
+ <li>high tolerance for configuration and runtime errors;</li>
+ <li>integration with HTTPD handling redirection pages;</li>
+ <li>on-the-fly reconfiguration (without restarting);</li>
+</ul>
+
 == License ==
 
 erjik uses FreeBSD License. You can found full license text on
