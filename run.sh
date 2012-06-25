@@ -6,5 +6,6 @@ exec erl \
     -noshell \
     -pa ./ebin \
     -erjik_config "./erjik.conf" \
+    -erjik_log "./erjik.log" \
     -s erjik
 
