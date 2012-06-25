@@ -13,14 +13,8 @@ doc:
 	erl -noshell -noinput -eval 'edoc:application(erjik, ".", [])' -s erlang halt
 
 clean:
-	rm -f -- ./doc/*.html
-	rm -f -- ./doc/*.css
-	rm -f -- ./doc/*.png
-	rm -f -- ./doc/edoc-info
-	rm -f -- ./ebin/*.beam
-	rm -f -- ./erl_crash.dump
-	rm -f -- ./otp_release
-	rm -f -- ./erlc_opts
+	rm -fv -- ./doc/*.html ./doc/*.css ./doc/*.png ./doc/edoc-info \
+		./ebin/*.beam ./erl_crash.dump ./otp_release ./erlc_opts
 	find ./ -type f -name '*~' -print -delete
 
 .ONESHELL:
