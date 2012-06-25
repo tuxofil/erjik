@@ -118,7 +118,7 @@ hup() ->
 %% @spec state() -> {ok, State}
 %%     State = term()
 state() ->
-    gen_server:call(?MODULE, state).
+    gen_server:call(?MODULE, ?SIG_STATE).
 
 %% ----------------------------------------------------------------------
 %% Callback functions
@@ -143,7 +143,7 @@ handle_info(Request, State) ->
     {noreply, State}.
 
 %% @hidden
-handle_call(state, _From, State) ->
+handle_call(?SIG_STATE, _From, State) ->
     {reply, {ok, State}, State};
 handle_call(Request, From, State) ->
     ?logwrn("~w> unknown call ~9999p from ~9999p",

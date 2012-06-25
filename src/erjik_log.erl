@@ -12,7 +12,8 @@
    [start_link/0,
     hup/0,
     log/3,
-    state/0
+    state/0,
+    flush/0
    ]).
 
 %% gen_server callback exports
@@ -50,7 +51,13 @@ log(Severity, Format, Args) ->
 %% @spec state() -> {ok, State}
 %%     State = term()
 state() ->
-    gen_server:call(?MODULE, state).
+    gen_server:call(?MODULE, ?SIG_STATE).
+
+%% @doc Flush and close log file. Usually called before
+%%      VM termination.
+%% @spec flush() -> ok
+flush() ->
+    gen_server:call(?MODULE, ?SIG_FLUSH).
 
 %% ----------------------------------------------------------------------
 %% gen_server callbacks
@@ -96,8 +103,11 @@ handle_info(_Request, State) ->
     {noreply, State}.
 
 %% @hidden
-handle_call(state, _From, State) ->
+handle_call(?SIG_STATE, _From, State) ->
     {reply, {ok, State}, State};
+handle_call(?SIG_FLUSH, _From, State) ->
+    catch file:close(State#state.handle),
+    {reply, ok, State#state{handle = undefined}};
 handle_call(_Request, _From, State) ->
     {noreply, State}.
 

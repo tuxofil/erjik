@@ -9,7 +9,8 @@
    [start/0,
     stop/0,
     hup/0,
-    ping/0
+    ping/0,
+    shutdown/1
    ]).
 
 -include("erjik.hrl").
@@ -47,6 +48,14 @@ ping() ->
         [_] -> halt(0);
         _ -> halt(1)
     end.
+
+%% @doc Flush log and terminate.
+%% @spec shutdown(ExitCode) -> none()
+%%     ExitCode = integer()
+shutdown(ExitCode) ->
+    ?loginf("~w> terminating (exitcode ~w)", [?MODULE, ExitCode]),
+    ok = erjik_log:flush(),
+    halt(ExitCode).
 
 %% --------------------------------------------------------------------
 %% Internal functions

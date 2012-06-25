@@ -47,7 +47,7 @@ match(URL) ->
 %% @spec state() -> {ok, State}
 %%     State = term()
 state() ->
-    gen_server:call(?MODULE, state).
+    gen_server:call(?MODULE, ?SIG_STATE).
 
 %% ----------------------------------------------------------------------
 %% gen_server callbacks
@@ -74,7 +74,7 @@ handle_call({match, URL}, From, State) ->
                 do_match(URL, State#state.regexps))
       end),
     {noreply, State};
-handle_call(state, _From, State) ->
+handle_call(?SIG_STATE, _From, State) ->
     {reply, {ok, State}, State};
 handle_call(_Request, _From, State) ->
     {noreply, State}.

@@ -55,6 +55,8 @@
 
 %% internal process signals
 -define(SIG_RECONFIG, '#reconfig').
+-define(SIG_STATE, '#state').
+-define(SIG_FLUSH, '#flush').
 
 -endif.
 

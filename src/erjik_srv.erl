@@ -31,9 +31,11 @@ init() ->
 loop() ->
     case io:get_line("") of
         eof ->
-            ?loginf("~w> input ends", [?MODULE]);
+            ?loginf("~w> input ends", [?MODULE]),
+            erjik:shutdown(0);
         {error, Reason} ->
-            ?logerr("~w> read error: ~9999p", [?MODULE, Reason]);
+            ?logerr("~w> read error: ~9999p", [?MODULE, Reason]),
+            erjik:shutdown(1);
         Request ->
             spawn(
               fun() ->
