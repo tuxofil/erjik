@@ -25,7 +25,7 @@ ERJIK - multithreaded URL rewriter for Squid proxy.
 -----------------------------------------------------------------
 3. License
 
-erjik uses FreeBSD License. You can found full license text
+erjik uses FreeBSD License. You can find full license text
 on http://www.freebsd.org/copyright/freebsd-license.html or
 in file LICENSE on the top of erjik sources tree.
 
