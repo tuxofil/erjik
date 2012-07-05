@@ -571,8 +571,14 @@ binary_to_ip(Binary) when size(Binary) == 16 ->
 %% @doc Converts IP address to integer.
 %% @spec ip_to_integer(inet:ip_address()) -> integer()
 ip_to_integer(IP) ->
-    <<Int/big-unsigned>> = ip_to_binary(IP),
-    Int.
+    case ip_to_binary(IP) of
+        Binary when size(Binary) == 4 ->
+            <<Int:32/big-unsigned>> = Binary,
+            Int;
+        Binary ->
+            <<Int:128/big-unsigned>> = Binary,
+            Int
+    end.
 
 %% @doc Converts integer to IPv4 address.
 %% @spec integer_to_ip4(integer()) -> inet:ip4_address()
