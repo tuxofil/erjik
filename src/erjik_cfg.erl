@@ -206,7 +206,6 @@ read() ->
     ?loginf("~w> reconfig done", [?MODULE]),
     catch erjik_log:hup(),
     catch erjik_re:hup(),
-    catch erjik_srv:hup(),
     catch erjik_httpd:hup(),
     ok.
 
