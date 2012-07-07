@@ -12,5 +12,5 @@
 RANDOM=`date +%N`
 exec erl -sname "erjik_hupper$RANDOM" \
     -noshell -noinput \
-    -s erjik hup
+    -s erjik hup > /dev/null 2>&1
 

@@ -12,5 +12,5 @@
 RANDOM=`date +%N`
 exec erl -sname "erjik_stopper$RANDOM" \
     -noshell -noinput \
-    -s erjik stop_remote
+    -s erjik stop_remote > /dev/null 2>&1
 

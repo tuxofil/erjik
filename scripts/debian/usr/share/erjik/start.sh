@@ -13,5 +13,5 @@ exec erl -sname "erjik" \
     -noshell \
     -erjik_config "/etc/erjik.conf" \
     -erjik_log "/var/log/erjik/erjik.log" \
-    -s erjik
+    -s erjik > /dev/null 2>&1
 
