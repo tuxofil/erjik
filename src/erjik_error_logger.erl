@@ -39,7 +39,7 @@ install() ->
 
 %% @hidden
 init(_Args) ->
-    ?logdbg("~w: installed", [?MODULE]),
+    ?logdbg("~w> installed", [?MODULE]),
     {ok, #state{}}.
 
 %% @hidden
@@ -48,28 +48,28 @@ handle_event({info_report, _Pid, _Data}, State) ->
     {ok, State};
 handle_event(Event, State) ->
     %% relay all other messages to our file logger
-    ?logwrn("~w: ~9999999999p", [?MODULE, Event]),
+    ?logwrn("~w> ~9999999999p", [?MODULE, Event]),
     {ok, State}.
 
 %% @hidden
 handle_call(Request, State) ->
-    ?logwrn("~w: unknown call: ~9999p", [?MODULE, Request]),
+    ?logwrn("~w> unknown call: ~9999p", [?MODULE, Request]),
     {ok, _Reply = ignore, State}.
 
 %% @hidden
 handle_info(Info, State) ->
-    ?logwrn("~w: unknown info: ~9999p", [?MODULE, Info]),
+    ?logwrn("~w> unknown info: ~9999p", [?MODULE, Info]),
     {ok, State}.
 
 %% @hidden
 terminate(_Arg, _State) ->
-    ?logdbg("~w: terminating", [?MODULE]),
+    ?logdbg("~w> terminating", [?MODULE]),
     ok.
 
 %% @hidden
 code_change(OldVsn, State, Extra) ->
     ?logdbg(
-       "~w: code_change(~9999p, ~9999p, ~9999p)",
+       "~w> code_change(~9999p, ~9999p, ~9999p)",
        [?MODULE, OldVsn, State, Extra]),
     {ok, State}.
 
