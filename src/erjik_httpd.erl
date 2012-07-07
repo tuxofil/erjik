@@ -76,7 +76,9 @@ state() ->
 %% @hidden
 init(_Init) ->
     process_flag(trap_exit, true),
-    hup(),
+    %% make delay before first start to avoid crashes when
+    %% configuration not ready
+    {ok, _TRef} = timer:apply_after(3000, ?MODULE, hup, []),
     ?loginf("~w> started", [?MODULE]),
     {ok, #state{}}.
 
