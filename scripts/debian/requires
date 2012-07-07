@@ -1,0 +1,10 @@
+mime-support
+sudo
+su
+erlang
+erlang-inets
+
+Build requires:
+erlang-dev
+erlang-edoc
+make

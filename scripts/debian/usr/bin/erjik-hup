@@ -1,0 +1,13 @@
+#!/bin/sh
+
+###-------------------------------------------------------------------
+### File    : erjik-hup
+### Author  : Aleksey Morarash <aleksey.morarash@gmail.com>
+### Created : 6 Jul 2012
+### License : FreeBSD
+### Description : erjik hup script wrapper
+###
+###-------------------------------------------------------------------
+
+exec su --login --command /usr/share/erjik/hup.sh erjik
+

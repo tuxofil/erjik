@@ -1,0 +1,13 @@
+#!/bin/sh
+
+###-------------------------------------------------------------------
+### File    : erjik-ping
+### Author  : Aleksey Morarash <aleksey.morarash@gmail.com>
+### Created : 6 Jul 2012
+### License : FreeBSD
+### Description : erjik ping script wrapper
+###
+###-------------------------------------------------------------------
+
+exec su --login --command /usr/share/erjik/ping.sh erjik
+
