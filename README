@@ -7,8 +7,9 @@ Contents:
  3. License
  4. Building
  5. Installing
- 6. Running
+ 6. Configuring Squid
  7. Testing
+ 8. Advanced administration
 
 -----------------------------------------------------------------
 1. SUMMARY
@@ -46,15 +47,26 @@ $ make
 -----------------------------------------------------------------
 5. INSTALLING
 
+You need to build erjik and documentation to install it:
+
+$ make all doc
+
+On Debian chdir to top of erjik sources tree and run:
+
+$ sudo ./scripts/debian/install.sh
+
+To remove erjik from system type:
+
+$ sudo ./scripts/debian/uninstall.sh
+
 -----------------------------------------------------------------
-6. RUNNING
+6. CONFIGURING SQUID
 
-Chdir to erjik sources top directory and type:
+Add this lines to your squid.conf:
 
-$ ./run.sh
-
-Erjik will start as foreground process, waiting for requests on
-stdin.
+url_rewrite_program /usr/sbin/erjik
+url_rewrite_concurrency 1
+url_rewrite_children 1
 
 -----------------------------------------------------------------
 7. TESTING
@@ -93,6 +105,22 @@ using run.sh script and supply test requests on erjik`s stdin.
 Answers will be send to erjik`s stdout. Do not forget to
 supply RequestID token otherwise erjik will be unable to parse
 incoming request.
+
+-----------------------------------------------------------------
+8. ADVANCED ADMINISTRATION
+
+After installation there will be a few erjik related tools in
+/usr/bin directory:
+
+- erjik-hup - makes erjik to reload its configs and reopen
+              log file (useful for log rotation);
+- erjik-ping - tests if erjik alive or not.
+
+- erjik-stop - stops erjik instance. This tool intended only
+              for debug purposes, do not use it unless you
+              know what are you doing;
+- erjik-remsh - creates remote Erlang shell on Erlang node
+              with erjik running. Only for debug purposes.
 
 -----------------------------------------------------------------
               Aleksey Morarash <aleksey.morarash@gmail.com>, 2012
