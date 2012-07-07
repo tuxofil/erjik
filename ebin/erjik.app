@@ -15,7 +15,8 @@
                   erjik_log,
                   erjik_srv,
                   erjik_re,
-                  erjik_httpd
+                  erjik_httpd,
+                  erjik_error_logger
                  ]},
   {registered,   [erjik_log,
                   erjik_cfg,

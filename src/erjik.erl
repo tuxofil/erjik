@@ -24,6 +24,7 @@
 %% @spec start() -> ok | {error, Reason}
 %%     Reason = term()
 start() ->
+    ok = erjik_error_logger:install(),
     application:start(?MODULE, permanent).
 
 %% @doc Stop erjik.
