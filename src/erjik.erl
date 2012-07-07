@@ -10,7 +10,8 @@
     stop/0,
     hup/0,
     ping/0,
-    shutdown/1
+    shutdown/1,
+    stop_remote/0
    ]).
 
 -include("erjik.hrl").
@@ -50,12 +51,19 @@ ping() ->
     end.
 
 %% @doc Flush log and terminate.
-%% @spec shutdown(ExitCode) -> none()
+%% @spec shutdown(ExitCode) -> no_return()
 %%     ExitCode = integer()
 shutdown(ExitCode) ->
     ?loginf("~w> terminating (exitcode ~w)", [?MODULE, ExitCode]),
     ok = erjik_log:flush(),
     halt(ExitCode).
+
+%% @doc Stop remote node with erjik running.
+%% @spec stop_remote() -> no_return()
+stop_remote() ->
+    {ok, Node} = connect_server(),
+    catch rpc:call(Node, ?MODULE, shutdown, [0]),
+    halt(0).
 
 %% --------------------------------------------------------------------
 %% Internal functions
