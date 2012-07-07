@@ -43,8 +43,11 @@ init(_Args) ->
     {ok, #state{}}.
 
 %% @hidden
+handle_event({info_report, _Pid, _Data}, State) ->
+    %% silently discard all informational messages
+    {ok, State};
 handle_event(Event, State) ->
-    %% relay all messages to our file logger
+    %% relay all other messages to our file logger
     ?logwrn("~w: ~9999999999p", [?MODULE, Event]),
     {ok, State}.
 
