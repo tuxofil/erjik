@@ -9,5 +9,5 @@
 ###
 ###-------------------------------------------------------------------
 
-exec sudo -n -u erjik -i /usr/share/erjik/start.sh
+exec sudo -n -u erjik /usr/share/erjik/start.sh
 
