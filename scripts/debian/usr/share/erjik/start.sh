@@ -9,6 +9,7 @@
 ###
 ###-------------------------------------------------------------------
 
+cd $(getent passwd `whoami` | cut --delimiter=":" --fields=6)
 exec erl -sname "erjik" \
     -noshell \
     -erjik_config "/etc/erjik.conf" \
