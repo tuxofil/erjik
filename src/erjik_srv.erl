@@ -76,7 +76,7 @@ handle_request(Request) ->
 parse_request(Request) ->
     case string:tokens(Request, " \t\r\n") of
         [[_ | _] = ReqID, [_ | _] = URL, [_ | _] = StrIP | _] ->
-            case erjik_lib:list_to_ip(StrIP) of
+            case erjik_lib:list_to_ip(strip_suffix("/-", StrIP)) of
                 {ok, IP} ->
                     ?logdbg(
                        "~w> request from ~s to ~s",
@@ -93,6 +93,12 @@ parse_request(Request) ->
                "~w> malformed request: ~99999p",
                [?MODULE, Request]),
             error
+    end.
+
+strip_suffix(Suffix, String) ->
+    case lists:suffix(Suffix, String) of
+        true -> lists:sublist(String, length(String) - length(Suffix));
+        false -> String
     end.
 
 %% @doc
