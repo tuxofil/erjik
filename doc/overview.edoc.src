@@ -9,7 +9,7 @@
 
 @author Aleksey Morarash <aleksey.morarash@gmail.com>
 @copyright 2012 Aleksey Morarash
-@version 0.2
+@version {{VERSION}}
 @title Welcome to erjik - Squid URL rewriter.
 @doc == Contents ==
 

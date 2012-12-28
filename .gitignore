@@ -1,11 +1,13 @@
 *~
 *.beam
+*.app
 doc/*.html
 doc/*.css
 doc/*.png
 doc/edoc-info
+doc/*.edoc
 erl_crash.dump
 *.log
 *.log.?
-otp_release
-erlc_opts
+.dialyzer_plt
+Emakefile

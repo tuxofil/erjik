@@ -1,33 +1,56 @@
-.PHONY: all doc clean erlc_opts
+VERSION = `cat version`
 
-SRCS=$(wildcard src/*.erl)
-BEAMS=$(patsubst src/%.erl, ebin/%.beam, $(SRCS))
+.PHONY: all compile doc test eunit dialyze clean
 
-ifndef DEBUG
-COPTS=
-else
-COPTS=+debug_info
+all: compile doc
+
+COPTS := warn_unused_function, warn_bif_clash, warn_deprecated_function, \
+	warn_obsolete_guard, warn_shadow_vars, warn_export_vars, \
+	warn_unused_records, warn_unused_import
+ifdef DEBUG
+COPTS := $(COPTS), debug_info
+endif
+ifdef TEST
+COPTS := $(COPTS), {d,'TEST',true}
+endif
+OTP_RELEASE = $(shell erl -noshell -eval 'io:format(erlang:system_info(otp_release)),halt()')
+ifeq ($(shell expr $(OTP_RELEASE) '<' R14B02),1)
+COPTS := $(COPTS), {d,'WITHOUT_INETS_HEADER',true}
 endif
 
-all: erlc_opts $(BEAMS)
+compile: ebin/erjik.app
+	sed "s/{{COPTS}}/$(COPTS)/" Emakefile.src > Emakefile
+	erl -noshell -eval 'up_to_date=make:all(),halt()'
 
-ebin/%.beam: src/%.erl include/*.hrl
-	erlc -I ./include -o ./ebin `cat erlc_opts` $(COPTS) $<
+ebin/erjik.app: src/erjik.app.src version ebin
+	sed s/{{VERSION}}/$(VERSION)/ $< > $@
 
-doc:
-	@echo Making documentation...
-	erl -noshell -noinput -eval 'edoc:application(erjik, ".", [])' -s erlang halt
+ebin:
+	mkdir --parents $@
+
+doc: doc/overview.edoc
+	erl -noshell -eval 'edoc:application(erjik,".",[{application,erjik}]),halt()'
+
+doc/overview.edoc: doc/overview.edoc.src version
+	sed s/{{VERSION}}/$(VERSION)/ $< > $@
+
+test:
+	$(MAKE) TEST=yes clean compile eunit
+	$(MAKE) DEBUG=yes clean compile dialyze
+
+eunit:
+	erl -noshell -pa ebin -eval 'ok=eunit:test({application,erjik},[verbose]),halt()'
+
+dialyze: .dialyzer_plt
+	dialyzer --plt $< -r . -Wunmatched_returns -Werror_handling
+	dialyzer --src --plt $< -r . -Wunmatched_returns -Werror_handling
+
+.dialyzer_plt:
+	dialyzer --build_plt --output_plt $@ \
+		--apps erts kernel stdlib crypto compiler inets
 
 clean:
-	rm -fv -- ./doc/*.html ./doc/*.css ./doc/*.png ./doc/edoc-info \
-		./ebin/*.beam ./erl_crash.dump ./otp_release ./erlc_opts
-	find ./ -type f -name '*~' -print -delete
-
-.ONESHELL:
-erlc_opts:
-	erl -noshell -noinput \
-		-eval 'io:format("~s~n", [erlang:system_info(otp_release)])' \
-		-s init stop > otp_release
-	expr `cat otp_release` '<' R14B02 > /dev/null && \
-		echo "-DWITHOUT_INETS_HEADER" > erlc_opts || :
+	rm --force -- doc/*.html doc/*.css doc/*.png doc/edoc-info doc/*.edoc \
+		ebin/*.app ebin/*.beam erl_crash.dump Emakefile
+	find . -type f -name '*~' -delete
 

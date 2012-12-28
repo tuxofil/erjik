@@ -58,5 +58,12 @@
 -define(SIG_STATE, '#state').
 -define(SIG_FLUSH, '#flush').
 
+%% ----------------------------------------------------------------------
+%% eunit
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -endif.
 

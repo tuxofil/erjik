@@ -6,7 +6,7 @@
 {application, erjik,
  [
   {description,  "ERJIK"},
-  {vsn,          "0.9.0"},
+  {vsn,          "{{VERSION}}"},
   {modules,      [erjik,
                   erjik_app,
                   erjik_sup,
