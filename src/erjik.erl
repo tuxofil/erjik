@@ -36,6 +36,7 @@ stop() ->
 %% @doc Connects to Erlang node with erjik running and makes
 %%      him re-read its configuration file and reopen log file.
 %% @spec hup() -> no_return()
+-spec hup() -> no_return().
 hup() ->
     {ok, Node} = connect_server(),
     ok = rpc:call(Node, erjik_cfg, hup, []),
@@ -43,6 +44,7 @@ hup() ->
 
 %% @doc Checks if Erlang node with running erjik exists.
 %% @spec ping() -> no_return()
+-spec ping() -> no_return().
 ping() ->
     {ok, Node} = connect_server(),
     Apps = rpc:call(Node, application, which_applications, []),
@@ -54,6 +56,7 @@ ping() ->
 %% @doc Flush log and terminate.
 %% @spec shutdown(ExitCode) -> no_return()
 %%     ExitCode = integer()
+-spec shutdown(ExitCode::non_neg_integer()) -> no_return().
 shutdown(ExitCode) ->
     ?loginf("~w> terminating (exitcode ~w)", [?MODULE, ExitCode]),
     ok = erjik_log:flush(),
@@ -61,6 +64,7 @@ shutdown(ExitCode) ->
 
 %% @doc Stop remote node with erjik running.
 %% @spec stop_remote() -> no_return()
+-spec stop_remote() -> no_return().
 stop_remote() ->
     {ok, Node} = connect_server(),
     catch rpc:call(Node, ?MODULE, shutdown, [0]),

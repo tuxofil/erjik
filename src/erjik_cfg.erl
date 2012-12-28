@@ -129,10 +129,10 @@ state() ->
 
 %% @hidden
 init(_Args) ->
-    ets:new(?FAC_CONFIGS, [named_table]),
-    ets:new(?FAC_DOMAINS, [named_table]),
-    ets:new(?FAC_REGEXPS, [named_table]),
-    ets:new(?FAC_MIME_TYPES, [named_table]),
+    ?FAC_CONFIGS = ets:new(?FAC_CONFIGS, [named_table]),
+    ?FAC_DOMAINS = ets:new(?FAC_DOMAINS, [named_table]),
+    ?FAC_REGEXPS = ets:new(?FAC_REGEXPS, [named_table]),
+    ?FAC_MIME_TYPES = ets:new(?FAC_MIME_TYPES, [named_table]),
     hup(),
     ?loginf("~w> started", [?MODULE]),
     {ok, #state{}}.
@@ -491,9 +491,7 @@ cfg_to_list(?CFG_BIND_IP, BindIP) ->
 cfg_to_list(?CFG_BIND_PORT, BindPort) ->
     integer_to_list(BindPort);
 cfg_to_list(?CFG_WWW_ROOT, WwwRoot) -> WwwRoot;
-cfg_to_list(?CFG_MIME_TYPES, MimeTypes) -> MimeTypes;
-cfg_to_list(_Key, Term) ->
-    lists:flatten(io_lib:format("~9999999p", [Term])).
+cfg_to_list(?CFG_MIME_TYPES, MimeTypes) -> MimeTypes.
 
 read_blacklist(Filename) ->
     case file:read_file(Filename) of

@@ -124,7 +124,7 @@ challenge(Fun, [_ | _] = List) when is_function(Fun, 1) ->
                         fun(Elem) ->
                                 spawn_link(
                                   fun() ->
-                                          exit({'#chall', Fun(Elem)})
+                                          challenge_work(Fun, Elem)
                                   end)
                         end, List)))
           end),
@@ -152,6 +152,9 @@ challenge_loop(Workers) ->
             end;
         _ -> challenge_loop(Workers)
     end.
+-spec challenge_work(Fun::fun((Arg::any()) -> any()), Elem::any()) -> no_return().
+challenge_work(Fun, Elem) ->
+    exit({'#chall', Fun(Elem)}).
 
 %% @doc Like lists:map/2, but each fun will be applied in parallel.
 %%      Results order will be preserved.
