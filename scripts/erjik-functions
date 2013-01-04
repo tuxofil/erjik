@@ -1,0 +1,13 @@
+[ `whoami` != "erjik" ] && exec sudo -n -u erjik "$0"
+cd $(getent passwd `whoami` | cut --delimiter=":" --fields=6)
+
+export ERL_EPMD_ADDRESS="127.0.0.1"
+# default TCP port number +1
+export ERL_EPMD_PORT=4370
+export ERL_AFLAGS=""
+export ERL_ZFLAGS=""
+export ERL_FLAGS=""
+export ERL_LIBS=""
+
+RANDOM=`date +%N`
+
