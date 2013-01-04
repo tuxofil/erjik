@@ -35,29 +35,29 @@ your software repository.
 erjik is developed and tested with Erlang R14A but probably
 will work with older Erlang versions.
 
-$ make
+    $ make
 
 ## Installing
 
 You need to build erjik and documentation to install it:
 
-   $ make all doc
+    $ make all doc
 
 On Debian chdir to top of erjik sources tree and run:
 
-   $ sudo make install
+    $ sudo make install
 
 To remove erjik from system type:
 
-   $ sudo make uninstall
+    $ sudo make uninstall
 
 ## Configuring Squid
 
 Add this lines to your squid.conf:
 
-   url_rewrite_program /usr/sbin/erjik
-   url_rewrite_concurrency 1
-   url_rewrite_children 1
+    url_rewrite_program /usr/sbin/erjik
+    url_rewrite_concurrency 1
+    url_rewrite_children 1
 
 ## Testing
 
@@ -67,7 +67,7 @@ Requests must be separated by newlines ('\n' or '\n\r').
 Each request must contain at least three tokens, separated by
 spaces or TABs:
 
-   RequestID URL SourceIP
+    RequestID URL SourceIP
 
 RequestID - is identifier of request to distinguish multiple
 requests in single pipe. Each erjik answer will be prefixed
@@ -101,16 +101,16 @@ incoming request.
 After installation there will be a few erjik related tools in
 /usr/sbin directory:
 
-- erjik-hup - makes erjik to reload its configs and reopen
+* erjik-hup - makes erjik to reload its configs and reopen
               log file (useful for log rotation);
-- erjik-ping - tests if erjik alive or not.
+* erjik-ping - tests if erjik alive or not.
 
-- erjik-stop - stops erjik instance. This tool intended only
+* erjik-stop - stops erjik instance. This tool intended only
               for debug purposes, do not use it unless you
               know what are you doing;
-- erjik-remsh - creates remote Erlang shell on Erlang node
+* erjik-remsh - creates remote Erlang shell on Erlang node
               with erjik running. Only for debug purposes.
 
 -----------------------------------------------------------------
-              Aleksey Morarash <aleksey.morarash@gmail.com>, 2012
+Aleksey Morarash <aleksey.morarash@gmail.com>, 2012
 
