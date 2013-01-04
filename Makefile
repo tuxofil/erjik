@@ -1,5 +1,5 @@
 APP = erjik
-VERSION = `cat version`
+VERSION = $(shell cat version)
 
 .PHONY: all compile doc test eunit dialyze clean install uninstall
 
@@ -92,7 +92,7 @@ install: compile
 	    sed 's@{{WWW_ROOT}}@$(www_dir)@g' | \
 	    $(INSTALL_DATA) /dev/stdin $(DESTDIR)$(conf_dir)/$(APP).conf
 	$(INSTALL_DATA) ebin/*.beam ebin/*.app $(DESTDIR)$(install_dir)/ebin
-	$(INSTALL_DATA) www/*.html $(DESTDIR)$(www_dir)
+	$(INSTALL_DATA) priv/www/*.html $(DESTDIR)$(www_dir)
 	$(INSTALL_DATA) priv/blacklists/* $(DESTDIR)$(blacklists_dir)
 	$(INSTALL_DATA) priv/regexps/* $(DESTDIR)$(regexps_dir)
 	$(INSTALL_DATA) README LICENSE $(DESTDIR)$(doc_dir)
