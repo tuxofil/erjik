@@ -2,7 +2,7 @@
 
 exec erl \
     -sname "erjik-remsh-$RANDOM" \
-    -setcookie "erjik_secret_cookie" \
+    -setcookie erjik_secret_cookie \
     -pa ./ebin \
-    -remsh "erjik@`hostname`"
+    -remsh "erjik@`hostname --short`"
 
