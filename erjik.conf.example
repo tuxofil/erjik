@@ -100,7 +100,7 @@ class.porn.redirect http://127.0.0.1:8888/porn.html
 
 ## Document root directory.
 ## Default: ./www/
-#www_root ./www/
+www_root priv/www/
 
 ## MIME types filename.
 ## On error reading mime types filename built-in simple mime-type
