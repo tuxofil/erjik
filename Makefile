@@ -95,7 +95,7 @@ install: compile
 	$(INSTALL_DATA) priv/www/*.html $(DESTDIR)$(www_dir)
 	$(INSTALL_DATA) priv/blacklists/* $(DESTDIR)$(blacklists_dir)
 	$(INSTALL_DATA) priv/regexps/* $(DESTDIR)$(regexps_dir)
-	$(INSTALL_DATA) README LICENSE $(DESTDIR)$(doc_dir)
+	$(INSTALL_DATA) README.md LICENSE $(DESTDIR)$(doc_dir)
 	cat sudoers.template | \
 	    sed 's@{{SBIN_DIR}}@$(sbin_dir)@g' | \
 	    $(INSTALL_SUDO) /dev/stdin $(DESTDIR)$(sudoers_dir)/erjik
