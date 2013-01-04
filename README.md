@@ -43,9 +43,24 @@ You need to build erjik and documentation to install it:
 
     $ make all doc
 
-On Debian chdir to top of erjik sources tree and run:
+Chdir to top of erjik sources tree and run:
 
     $ sudo make install
+
+You need to create special user for erjik because 'make install' does not
+creates it:
+
+    $ sudo adduser --system --home /var/log/erjik --shell /bin/sh erjik
+
+And the last, make sure /var/log/erjik directory is writable by erjik user:
+
+    $ sudo chown -R erjik:erjik /var/log/erjik
+
+### Staged installation
+
+Use DESTDIR environment variable.
+
+### Uninstallation
 
 To remove erjik from system type:
 
