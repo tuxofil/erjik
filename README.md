@@ -61,7 +61,7 @@ Add this lines to your squid.conf:
 
 ## Testing
 
-Under the hood.
+### Under the hood
 
 Requests must be separated by newlines ('\n' or '\n\r').
 Each request must contain at least three tokens, separated by
@@ -88,7 +88,7 @@ user. When user is allowed to get source URL, FinalURL will be
 the same as source URL otherwise FinalURL will point to so called
 banpage.
 
-Testing.
+### Testing
 
 In order to test erjik you can manually start it from shell
 using run.sh script and supply test requests on erjik's stdin.
