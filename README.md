@@ -1,52 +1,31 @@
-                      ERJIK README FILE
+# Erjik - multithreaded URL rewriter for Squid proxy.
 
-Contents:
+## Goals
 
- 1. Summary
- 2. Goals
- 3. License
- 4. Requirements
- 5. Building
- 6. Installing
- 7. Configuring Squid
- 8. Testing
- 9. Advanced administration
+* multithreaded request processing;
+* high tolerance for configuration and runtime errors;
+* integration with HTTPD handling redirection pages;
+* on-the-fly reconfiguration (without Squid restarting).
 
------------------------------------------------------------------
-1. SUMMARY
-
-ERJIK - multithreaded URL rewriter for Squid proxy.
-
------------------------------------------------------------------
-2. Goals
-
- - multithreaded request processing;
- - high tolerance for configuration and runtime errors;
- - integration with HTTPD handling redirection pages;
- - on-the-fly reconfiguration (without Squid restarting).
-
------------------------------------------------------------------
-3. License
+## License
 
 erjik uses FreeBSD License. You can find full license text
 on http://www.freebsd.org/copyright/freebsd-license.html or
 in file LICENSE on the top of erjik sources tree.
 
------------------------------------------------------------------
-4. REQUIREMENTS
+## Requirements
 
-mime-support
-sudo
-erlang
-erlang-inets
+* mime-support;
+* sudo;
+* erlang;
+* erlang-inets.
 
 Build requires:
-make
-erlang-dev
-erlang-edoc (optional)
+* make;
+* erlang-dev;
+* erlang-edoc (optional).
 
------------------------------------------------------------------
-5. BUILDING
+## Building
 
 Erlang must be installed to build and run erjik.
 You always can obtain latest Erlang version on
@@ -58,32 +37,29 @@ will work with older Erlang versions.
 
 $ make
 
------------------------------------------------------------------
-6. INSTALLING
+## Installing
 
 You need to build erjik and documentation to install it:
 
-$ make all doc
+   $ make all doc
 
 On Debian chdir to top of erjik sources tree and run:
 
-$ sudo make install
+   $ sudo make install
 
 To remove erjik from system type:
 
-$ sudo make uninstall
+   $ sudo make uninstall
 
------------------------------------------------------------------
-7. CONFIGURING SQUID
+## Configuring Squid
 
 Add this lines to your squid.conf:
 
-url_rewrite_program /usr/sbin/erjik
-url_rewrite_concurrency 1
-url_rewrite_children 1
+   url_rewrite_program /usr/sbin/erjik
+   url_rewrite_concurrency 1
+   url_rewrite_children 1
 
------------------------------------------------------------------
-8. TESTING
+## Testing
 
 Under the hood.
 
@@ -91,7 +67,7 @@ Requests must be separated by newlines ('\n' or '\n\r').
 Each request must contain at least three tokens, separated by
 spaces or TABs:
 
-RequestID URL SourceIP
+   RequestID URL SourceIP
 
 RequestID - is identifier of request to distinguish multiple
 requests in single pipe. Each erjik answer will be prefixed
@@ -120,8 +96,7 @@ Answers will be send to erjik`s stdout. Do not forget to
 supply RequestID token otherwise erjik will be unable to parse
 incoming request.
 
------------------------------------------------------------------
-9. ADVANCED ADMINISTRATION
+## Advanced administration
 
 After installation there will be a few erjik related tools in
 /usr/sbin directory:
