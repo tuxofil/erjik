@@ -81,7 +81,7 @@ SourceIP - is the user IP address.
 
 Each answer will look like:
 
-RequestID FinalURL
+    RequestID FinalURL
 
 FinalURL - URL of destination page which will be provided to
 user. When user is allowed to get source URL, FinalURL will be
