@@ -54,7 +54,7 @@ creates it:
 
 And the last, make sure /var/log/erjik directory is writable by erjik user:
 
-    $ sudo chown -R erjik:erjik /var/log/erjik
+    $ sudo chown -R erjik: /var/log/erjik
 
 ### Staged installation
 
