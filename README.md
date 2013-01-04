@@ -91,8 +91,8 @@ banpage.
 Testing.
 
 In order to test erjik you can manually start it from shell
-using run.sh script and supply test requests on erjik`s stdin.
-Answers will be send to erjik`s stdout. Do not forget to
+using run.sh script and supply test requests on erjik's stdin.
+Answers will be send to erjik's stdout. Do not forget to
 supply RequestID token otherwise erjik will be unable to parse
 incoming request.
 
