@@ -5,11 +5,12 @@ Contents:
  1. Summary
  2. Goals
  3. License
- 4. Building
- 5. Installing
- 6. Configuring Squid
- 7. Testing
- 8. Advanced administration
+ 4. Requirements
+ 5. Building
+ 6. Installing
+ 7. Configuring Squid
+ 8. Testing
+ 9. Advanced administration
 
 -----------------------------------------------------------------
 1. SUMMARY
@@ -22,7 +23,7 @@ ERJIK - multithreaded URL rewriter for Squid proxy.
  - multithreaded request processing;
  - high tolerance for configuration and runtime errors;
  - integration with HTTPD handling redirection pages;
- - on-the-fly reconfiguration (without restarting).
+ - on-the-fly reconfiguration (without Squid restarting).
 
 -----------------------------------------------------------------
 3. License
@@ -32,7 +33,20 @@ on http://www.freebsd.org/copyright/freebsd-license.html or
 in file LICENSE on the top of erjik sources tree.
 
 -----------------------------------------------------------------
-4. BUILDING
+4. REQUIREMENTS
+
+mime-support
+sudo
+erlang
+erlang-inets
+
+Build requires:
+make
+erlang-dev
+erlang-edoc (optional)
+
+-----------------------------------------------------------------
+5. BUILDING
 
 Erlang must be installed to build and run erjik.
 You always can obtain latest Erlang version on
@@ -45,7 +59,7 @@ will work with older Erlang versions.
 $ make
 
 -----------------------------------------------------------------
-5. INSTALLING
+6. INSTALLING
 
 You need to build erjik and documentation to install it:
 
@@ -53,14 +67,14 @@ $ make all doc
 
 On Debian chdir to top of erjik sources tree and run:
 
-$ sudo ./scripts/debian/install.sh
+$ sudo make install
 
 To remove erjik from system type:
 
-$ sudo ./scripts/debian/uninstall.sh
+$ sudo make uninstall
 
 -----------------------------------------------------------------
-6. CONFIGURING SQUID
+7. CONFIGURING SQUID
 
 Add this lines to your squid.conf:
 
@@ -69,7 +83,7 @@ url_rewrite_concurrency 1
 url_rewrite_children 1
 
 -----------------------------------------------------------------
-7. TESTING
+8. TESTING
 
 Under the hood.
 
@@ -107,10 +121,10 @@ supply RequestID token otherwise erjik will be unable to parse
 incoming request.
 
 -----------------------------------------------------------------
-8. ADVANCED ADMINISTRATION
+9. ADVANCED ADMINISTRATION
 
 After installation there will be a few erjik related tools in
-/usr/bin directory:
+/usr/sbin directory:
 
 - erjik-hup - makes erjik to reload its configs and reopen
               log file (useful for log rotation);
