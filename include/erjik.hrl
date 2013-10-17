@@ -28,7 +28,7 @@
          ?CFG_ORDER, ?CFG_IP_DENY_REDIRECT,
          ?CFG_URL_DENY_REDIRECT, ?CFG_MIME_TYPES,
          ?CFG_IP_DEFAULT_POLICY, ?CFG_URL_DEFAULT_POLICY,
-         ?CFG_BIND_IP, ?CFG_BIND_PORT, ?CFG_WWW_ROOT]).
+         ?CFG_BIND_IP, ?CFG_BIND_PORT, ?CFG_WWW_ROOT, ?CFG_MIME_TYPES]).
 
 -define(CFG_CLASS_DOMAINS, domains).
 -define(CFG_CLASS_REGEXPS, regexps).
@@ -36,6 +36,8 @@
 
 -define(CFGS_CLASS,
         [?CFG_CLASS_DOMAINS, ?CFG_CLASS_REGEXPS, ?CFG_CLASS_REDIRECT]).
+
+-define(CFG_ERJIK_CONFIG, erjik_config).
 
 -define(LOGLEVEL_NONE, none).
 -define(LOGLEVEL_ERROR, error).

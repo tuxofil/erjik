@@ -1,59 +1,87 @@
 APP = erjik
+
 VERSION = $(shell cat version)
 
-.PHONY: all compile doc test eunit dialyze clean install uninstall
+.PHONY: all compile doc clean eunit dialyze all-tests \
+	install-doc install-html debian-install debian-uninstall
 
-all: compile doc
+all: $(APP)
 
-COPTS := warn_unused_function, warn_bif_clash, warn_deprecated_function, \
-	warn_obsolete_guard, warn_shadow_vars, warn_export_vars, \
-	warn_unused_records, warn_unused_import
+COPTS = {outdir, ebin}, {i, \"include\"}, warn_unused_function, \
+ warn_bif_clash, warn_deprecated_function, warn_obsolete_guard, verbose, \
+ warn_shadow_vars, warn_export_vars, warn_unused_records, \
+ warn_unused_import, warn_export_all, warnings_as_errors
+
 ifdef DEBUG
 COPTS := $(COPTS), debug_info
 endif
+
 ifdef TEST
-COPTS := $(COPTS), {d,'TEST',true}
-endif
-OTP_RELEASE = $(shell erl -noshell -eval 'io:format(erlang:system_info(otp_release)),halt()')
-ifeq ($(shell expr $(OTP_RELEASE) '<' R14B02),1)
-COPTS := $(COPTS), {d,'WITHOUT_INETS_HEADER',true}
+COPTS := $(COPTS), {d, 'TEST'}
 endif
 
-compile: ebin/$(APP).app
-	sed "s/{{COPTS}}/$(COPTS)/" Emakefile.src > Emakefile
-	erl -noshell -eval 'up_to_date=make:all(),halt()'
+ifdef TRACE
+COPTS := $(COPTS), {d, 'TRACE'}
+endif
 
-ebin/$(APP).app: src/$(APP).app.src version ebin
-	sed s/{{VERSION}}/$(VERSION)/ $< > $@
+OTPREL = $(shell erl -noshell -eval 'io:format(erlang:system_info(otp_release)),halt()')
+ifeq ($(shell expr $(OTPREL) '<' R14B02), 1)
+COPTS := $(COPTS), {d, 'WITHOUT_INETS_HEADER'}
+endif
 
-ebin:
-	mkdir --parents $@
+compile:
+	mkdir -p ebin
+	sed "s/{{VERSION}}/$(VERSION)/" src/$(APP).app.in > ebin/$(APP).app
+	echo '["src/*"].' > Emakefile
+	erl -noinput -eval "up_to_date=make:all([$(COPTS)]),halt()"
 
-doc: doc/overview.edoc
-	erl -noshell -eval 'edoc:application($(APP),".",[{application,$(APP)}]),halt()'
+$(APP): compile
+	zip -j $(APP) ebin/*
+	echo '#!/usr/bin/env escript' > $(APP)
+	echo '%%!-smp' >> $(APP)
+	cat $(APP).zip >> $(APP)
+	chmod 755 $(APP)
 
-doc/overview.edoc: doc/overview.edoc.src version
-	sed s/{{VERSION}}/$(VERSION)/ $< > $@
-
-test:
-	$(MAKE) TEST=yes clean compile eunit
-	$(MAKE) DEBUG=yes clean compile dialyze
+html:
+	sed "s/{{VERSION}}/$(VERSION)/" doc/overview.edoc.in > doc/overview.edoc
+	erl -noinput -eval \
+		'edoc:application($(APP),".",[{application,$(APP)}]),halt()'
 
 eunit:
-	erl -noshell -pa ebin -eval 'ok=eunit:test({application,$(APP)},[verbose]),halt()'
+	$(MAKE) TEST=y clean compile
+	erl -noinput -pa ebin \
+		-eval 'ok=eunit:test({application,$(APP)},[verbose]),halt()'
 
-dialyze: .dialyzer_plt
-	dialyzer --plt $< -r . -Wunmatched_returns -Werror_handling
-	dialyzer --src --plt $< -r . -Wunmatched_returns -Werror_handling
+PLT = .dialyzer_plt
 
-.dialyzer_plt:
+dialyze: $(PLT)
+	dialyzer --src --plt $< -r . \
+		-Wunmatched_returns -Werror_handling -Wrace_conditions
+	$(MAKE) DEBUG=y clean compile
+	dialyzer --plt $< -r . \
+		-Wunmatched_returns -Werror_handling -Wrace_conditions
+
+$(PLT):
 	dialyzer --build_plt --output_plt $@ \
-		--apps erts kernel stdlib crypto compiler inets
+		--apps erts inets kernel stdlib crypto compiler
+
+all-tests:
+	$(MAKE) eunit
+	$(MAKE) dialyze
 
 clean:
-	rm --force -- doc/*.html doc/*.css doc/*.png doc/edoc-info doc/*.edoc \
-		ebin/*.app ebin/*.beam erl_crash.dump Emakefile
+	rm -rf -- ebin doc/*.html doc/*.css doc/*.png doc/edoc-info \
+	    $(APP).zip $(APP) erl_crash.dump Emakefile doc/overview.edoc \
+	    *.log *.log.* tmp_file
 	find . -type f -name '*~' -delete
+
+install-doc:
+	install -m 755 --directory $(DESTDIR)
+	install -m 644 README.md LICENSE $(DESTDIR)/
+
+install-html: html
+	install -m 755 --directory $(DESTDIR)
+	install -m 644 doc/*.html doc/*.css doc/*.png $(DESTDIR)/
 
 ## ----------------------------------------------------------------------
 ## installation/deinstallation section
@@ -61,7 +89,6 @@ clean:
 conf_dir    = /etc/$(APP)
 sudoers_dir = /etc/sudoers.d
 sbin_dir    = /usr/sbin
-install_dir = /usr/lib/erlang/lib/$(APP)-$(VERSION)
 doc_dir     = /usr/share/doc/$(APP)
 log_dir     = /var/log/$(APP)
 
@@ -74,10 +101,8 @@ INSTALL_DATA = install --mode=0644 --
 INSTALL_SUDO = install --mode=0440 --
 INSTALL_PROG = install --mode=0755 --
 
-install: compile
+debian-install: compile
 	$(INSTALL_DIR) \
-	    $(DESTDIR)$(install_dir)/ebin \
-	    $(DESTDIR)$(install_dir)/priv \
 	    $(DESTDIR)$(www_dir) \
 	    $(DESTDIR)$(conf_dir) \
 	    $(DESTDIR)$(blacklists_dir) $(DESTDIR)$(regexps_dir) \
@@ -91,7 +116,6 @@ install: compile
 	    sed 's@{{REGEXPS}}@$(regexps_dir)@g' | \
 	    sed 's@{{WWW_ROOT}}@$(www_dir)@g' | \
 	    $(INSTALL_DATA) /dev/stdin $(DESTDIR)$(conf_dir)/$(APP).conf
-	$(INSTALL_DATA) ebin/*.beam ebin/*.app $(DESTDIR)$(install_dir)/ebin
 	$(INSTALL_DATA) priv/www/*.html $(DESTDIR)$(www_dir)
 	$(INSTALL_DATA) priv/blacklists/* $(DESTDIR)$(blacklists_dir)
 	$(INSTALL_DATA) priv/regexps/* $(DESTDIR)$(regexps_dir)
@@ -109,9 +133,8 @@ install: compile
 	    $(DESTDIR)$(sbin_dir)
 	$(INSTALL_DATA) scripts/erjik-functions $(DESTDIR)$(sbin_dir)
 
-uninstall:
+debian-uninstall:
 	rm --force --recursive --verbose -- \
-	    $(DESTDIR)$(install_dir) \
 	    $(DESTDIR)$(www_dir) \
 	    $(DESTDIR)$(conf_dir) \
 	    $(DESTDIR)$(blacklists_dir) $(DESTDIR)$(regexps_dir) \

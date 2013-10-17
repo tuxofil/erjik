@@ -5,7 +5,7 @@
 
 {application, erjik,
  [
-  {description,  "ERJIK"},
+  {description,  "ERJIK - Squid URL rewriter"},
   {vsn,          "{{VERSION}}"},
   {modules,      [erjik,
                   erjik_app,
@@ -16,13 +16,14 @@
                   erjik_srv,
                   erjik_re,
                   erjik_httpd,
+                  erjik_httpd_warden,
                   erjik_error_logger
                  ]},
   {registered,   [erjik_log,
                   erjik_cfg,
                   erjik_srv,
                   erjik_re,
-                  erjik_httpd
+                  erjik_httpd_warden
                  ]},
   {applications, []},
   {env,          []},

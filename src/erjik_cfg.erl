@@ -1,7 +1,9 @@
+%%% @doc
+%%% Configuration facility library.
+
 %%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
 %%% @since 15 Mar 2012
 %%% @copyright 2009-2012, Aleksey Morarash
-%%% @doc Configuration facility library
 
 -module(erjik_cfg).
 
@@ -14,8 +16,7 @@
     classify/1,
     regexps/0,
     mime_type/1,
-    hup/0,
-    state/0
+    hup/0
    ]).
 
 %% gen_server callback exports
@@ -33,20 +34,98 @@
 -define(default_mime_type, "application/octet-stream").
 
 %% ----------------------------------------------------------------------
+%% Types definitions
+%% ----------------------------------------------------------------------
+
+-export_type(
+   [raw_config/0,
+    raw_config_item/0,
+    class_param/0,
+    config/0,
+    config_item/0,
+    classes/0,
+    class/0,
+    mime_types/0,
+    mime_type/0,
+    loglevel/0
+   ]).
+
+-type raw_config() :: [raw_config_item()].
+
+-type raw_config_item() ::
+        config_item() |
+        {Key :: {class, ClassName :: nonempty_string(),
+                 ClassParam :: ?CFG_CLASS_DOMAINS},
+         Filename :: file:filename()} |
+        {Key :: {class, ClassName :: nonempty_string(),
+                 ClassParam :: ?CFG_CLASS_REGEXPS},
+         Filename :: file:filename()} |
+        {Key :: {class, ClassName :: nonempty_string(),
+                 ClassParam :: ?CFG_CLASS_REDIRECT},
+         URL :: nonempty_string() | undefined}.
+
+-type raw_config_item_key() ::
+        config_simple_key() |
+        {class, ClassName :: nonempty_string(),
+         ClassParam :: class_param()}.
+
+-type class_param() ::
+        ?CFG_CLASS_DOMAINS | ?CFG_CLASS_REGEXPS | ?CFG_CLASS_REDIRECT.
+
+-type config() :: [config_item()].
+
+-type config_item() ::
+        {?CFG_LOGLEVEL, LogLevel :: loglevel()} |
+        {?CFG_IP_DENY_REDIRECT, URL :: string()} |
+        {?CFG_URL_DENY_REDIRECT, URL :: string()} |
+        {?CFG_ORDER, Order :: [?CFG_ALLOW | ?CFG_DENY]} |
+        {?CFG_PRIVILEGED, [IP :: inet:ip_address()]} |
+        {?CFG_ALLOW, AllowedAddrs :: erjik_lib:ip_pool()} |
+        {?CFG_DENY, RestrictedAddrs :: erjik_lib:ip_pool()} |
+        {?CFG_IP_DEFAULT_POLICY, Policy :: ?CFG_ALLOW | ?CFG_DENY} |
+        {?CFG_URL_DEFAULT_POLICY, Policy :: ?CFG_ALLOW | ?CFG_DENY} |
+        {?CFG_BIND_IP, inet:ip_address()} |
+        {?CFG_BIND_PORT, inet:port_number()} |
+        {?CFG_WWW_ROOT, WwwRootPath :: string()} |
+        {?CFG_MIME_TYPES, MymeTypesPath :: string()}.
+
+-type config_simple_key() ::
+        ?CFG_LOGLEVEL | ?CFG_PRIVILEGED | ?CFG_ALLOW | ?CFG_DENY |
+        ?CFG_ORDER | ?CFG_IP_DENY_REDIRECT | ?CFG_URL_DENY_REDIRECT |
+        ?CFG_MIME_TYPES | ?CFG_IP_DEFAULT_POLICY | ?CFG_URL_DEFAULT_POLICY |
+        ?CFG_BIND_IP | ?CFG_BIND_PORT | ?CFG_WWW_ROOT.
+
+-type classes() :: [class()].
+
+-type class() ::
+        {ClassName :: nonempty_string(),
+         Domains :: [nonempty_string()],
+         Regexps :: [nonempty_string()],
+         RedirectURL :: nonempty_string() | undefined}.
+
+-type mime_types() :: [mime_type()].
+
+-type mime_type() ::
+        {FilenameExtension :: nonempty_string(),
+         MimeType :: nonempty_string()}.
+
+-type loglevel() ::
+        ?LOGLEVEL_NONE | ?LOGLEVEL_ERROR | ?LOGLEVEL_WARNING |
+        ?LOGLEVEL_INFO | ?LOGLEVEL_DEBUG.
+
+%% ----------------------------------------------------------------------
 %% API functions
 %% ----------------------------------------------------------------------
 
 %% @doc Start configuration facility process as part of supervision tree.
-%% @spec start_link() -> {ok, pid()}
+-spec start_link() -> {ok, Pid :: pid()} | ignore | {error, Reason :: any()}.
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %% @doc Fetch configuration param value. In case when no configuration
 %%      available yet (on system start for example) default value
 %%      will be returned.
-%% @spec get(Key) -> Value
-%%     Key = atom(),
-%%     Value = term()
+-spec get(Key :: atom()) -> Value :: any().
 get(Key) ->
     try ets:lookup(?FAC_CONFIGS, Key) of
         [{Key, Value} | _] -> Value;
@@ -56,10 +135,10 @@ get(Key) ->
     end.
 
 %% @doc Classify URL by defined in configuration destination classes.
-%% @spec classify(URL) -> {ok, ClassName, RedirectURL} | undefined
-%%     URL = string(),
-%%     ClassName = string(),
-%%     RedirectURL = string()
+-spec classify(URL :: nonempty_string()) ->
+                      {ok, ClassName :: nonempty_string(),
+                       RedirectURL :: nonempty_string() | undefined} |
+                      undefined.
 classify(URL) ->
     case erjik_lib:parse_uri(URL) of
         {ok, List} ->
@@ -80,19 +159,15 @@ classify(URL) ->
     end.
 
 %% @doc Return all regexps defined in configurations.
-%% @spec regexps() -> List
-%%     List = [{ClassName, Regexps}],
-%%     ClassName = string(),
-%%     Regexps = [string()]
+-spec regexps() -> [{ClassName :: nonempty_string(),
+                     Regexps :: [nonempty_string()]}].
 regexps() ->
     try ets:tab2list(?FAC_REGEXPS)
     catch _:_ -> []
     end.
 
 %% @doc Resolves mime type for supplied filename by its suffix.
-%% @spec mime_type(Filename) -> MimeType
-%%     Filename = string(),
-%%     MimeType = string()
+-spec mime_type(Filename :: file:filename()) -> MimeType :: nonempty_string().
 mime_type(Filename) ->
     case lists:reverse(
            string:tokens(
@@ -109,16 +184,9 @@ mime_type(Filename) ->
     end.
 
 %% @doc Sends 'reconfig' signal to configuration facility process.
-%% @spec hup() -> ok
+-spec hup() -> ok.
 hup() ->
     gen_server:cast(?MODULE, ?SIG_RECONFIG).
-
-%% @doc Return process state term.
-%% @hidden
-%% @spec state() -> {ok, State}
-%%     State = term()
-state() ->
-    gen_server:call(?MODULE, ?SIG_STATE).
 
 %% ----------------------------------------------------------------------
 %% Callback functions
@@ -128,6 +196,7 @@ state() ->
 -record(state, {}).
 
 %% @hidden
+-spec init(Args :: any()) -> {ok, InitialState :: #state{}}.
 init(_Args) ->
     ?FAC_CONFIGS = ets:new(?FAC_CONFIGS, [named_table]),
     ?FAC_DOMAINS = ets:new(?FAC_DOMAINS, [named_table]),
@@ -138,19 +207,23 @@ init(_Args) ->
     {ok, #state{}}.
 
 %% @hidden
+-spec handle_info(Info :: any(), State :: #state{}) ->
+                         {noreply, State :: #state{}}.
 handle_info(Request, State) ->
     ?logwrn("~w> unknown info ~9999p", [?MODULE, Request]),
     {noreply, State}.
 
 %% @hidden
-handle_call(?SIG_STATE, _From, State) ->
-    {reply, {ok, State}, State};
+-spec handle_call(Request :: any(), From :: any(), State :: #state{}) ->
+                         {noreply, NewState :: #state{}}.
 handle_call(Request, From, State) ->
     ?logwrn("~w> unknown call ~9999p from ~9999p",
             [?MODULE, Request, From]),
     {noreply, State}.
 
 %% @hidden
+-spec handle_cast(Request :: any(), State :: #state{}) ->
+                         {noreply, NewState :: #state{}}.
 handle_cast(?SIG_RECONFIG, State) ->
     ?loginf("~w> reconfig requested", [?MODULE]),
     read(),
@@ -160,11 +233,14 @@ handle_cast(Request, State) ->
     {noreply, State}.
 
 %% @hidden
+-spec terminate(Reason :: any(), State :: #state{}) -> ok.
 terminate(Reason, State) ->
     ?loginf("~w> terminate(~9999p, ~9999p)",
             [?MODULE, Reason, State]).
 
 %% @hidden
+-spec code_change(OldVersion :: any(), State :: #state{}, Extra :: any()) ->
+                         {ok, NewState :: #state{}}.
 code_change(OldVsn, State, Extra) ->
     ?loginf("~w> code_change(~9999p, ~9999p, ~9999p)",
             [?MODULE, OldVsn, State, Extra]),
@@ -176,43 +252,54 @@ code_change(OldVsn, State, Extra) ->
 
 %% @doc Reads configurations from main config and loads
 %%      all related domain and regexp databases.
-%% @spec read() -> ok
+-spec read() -> ok.
 read() ->
-    Filename =
-        case proplists:get_value(erjik_config, init:get_arguments()) of
-            [_ | _] = Filename0 -> Filename0;
-            _ ->
-                Default = "./erjik.conf",
-                ?logwrn(
-                   "~w> No config filename specified. "
-                   "\"~s\" will be used as default. You may define "
-                   "configuration file location with '-erjik_config' "
-                   "option.", [?MODULE, Default]),
-                Default
-        end,
-    Content =
-        case file:read_file(Filename) of
-            {ok, Binary} ->
-                binary_to_list(Binary);
-            {error, Reason} ->
-                ?logerr(
-                   "~w> Failed to read configuration file "
-                   "\"~s\": ~9999p", [?MODULE, Filename, Reason]),
-                []
-        end,
     apply_config(
       assemble_config(
-        parse_config(Content))),
+        parse_config(
+          read_config_file(
+            get_config_filename())))),
     ?loginf("~w> reconfig done", [?MODULE]),
-    catch erjik_log:hup(),
-    catch erjik_re:hup(),
-    catch erjik_httpd:hup(),
-    ok.
+    ok = erjik_log:hup(),
+    ok = erjik_re:hup(),
+    ok = erjik_httpd_warden:hup().
+
+-spec read_config_file(Filename :: file:filename()) -> string().
+read_config_file(Filename) ->
+    case file:read_file(Filename) of
+        {ok, Binary} ->
+            binary_to_list(Binary);
+        {error, Reason} ->
+            ?logerr(
+               "~w> Failed to read configuration file "
+               "\"~s\": ~9999p", [?MODULE, Filename, Reason]),
+            []
+    end.
+
+-spec get_config_filename() -> Filename :: file:filename().
+get_config_filename() ->
+    case application:get_env(?CFG_ERJIK_CONFIG) of
+        {ok, Filename} ->
+            Filename;
+        undefined ->
+            Args = init:get_arguments(),
+            case proplists:get_value(?CFG_ERJIK_CONFIG, Args) of
+                [[_ | _] = Filename | _] ->
+                    Filename;
+                _ ->
+                    Default = get_default_value(?CFG_ERJIK_CONFIG),
+                    ?logwrn(
+                       "~w> No config filename specified. "
+                       "\"~s\" will be used as default. You can define "
+                       "configuration file location with '-erjik_config' "
+                       "option.", [?MODULE, Default]),
+                    Default
+            end
+    end.
 
 %% @doc Returns default value for configuration parameter.
-%% @spec get_default_value(Key) -> Value
-%%     Key = atom(),
-%%     Value = term()
+-spec get_default_value(Key :: atom()) ->
+                               (Value :: any()) | undefined.
 get_default_value(?CFG_LOGLEVEL) -> ?LOGLEVEL_WARNING;
 get_default_value(?CFG_IP_DENY_REDIRECT) ->
     "http://127.0.0.1:8888/denied-by-ip.html";
@@ -228,190 +315,91 @@ get_default_value(?CFG_BIND_IP) -> {127,0,0,1};
 get_default_value(?CFG_BIND_PORT) -> 8888;
 get_default_value(?CFG_WWW_ROOT) -> "./www/";
 get_default_value(?CFG_MIME_TYPES) -> "/etc/mime.types";
+get_default_value(?CFG_ERJIK_CONFIG) -> "./erjik.conf";
 get_default_value(_) -> undefined.
 
 %% @doc Returns parsed all valid key-value pairs from
 %%      configuration file body.
-%% @spec parse_config(String) -> ConfigItems
-%%     String = string(),
-%%     ConfigItems = [ConfigItem],
-%%     ConfigItem = {Key, Value},
-%%     Key = atom() | {class, ClassName, ClassParam},
-%%     ClassName = string(),
-%%     ClassParam = atom(),
-%%     Value = term()
+-spec parse_config(String :: string()) -> raw_config().
 parse_config(String) ->
     lists:flatmap(
-      fun({LineNo, StrKey, StrValue}) ->
-              case parse_key(StrKey) of
-                  {ok, Key} ->
-                      case parse_val(Key, StrValue) of
-                          {ok, Value} ->
-                              [{Key, Value}];
-                          _ ->
-                              ?logerr(
-                                 "~w> config: bad value on line ~w "
-                                 "for key '~s': \"~s\"",
-                                 [?MODULE, LineNo, StrKey, StrValue]),
-                              []
-                      end;
-                  _ ->
-                      ?logerr(
-                         "~w> config: bad key on line ~w: \"~s\"",
-                         [?MODULE, LineNo, StrKey]),
-                      []
-              end
-      end, erjik_lib:preparse_config(String)).
+      fun parse_key_val_pair/1,
+      erjik_lib:preparse_config(String)).
 
 %% @doc Processes parsed key-value pairs and produces final
 %%      application configuration database.
-%% @spec assemble_config(ConfigItems) -> {Config, Classes, MimeTypes}
-%%     ConfigItems = [ConfigItem],
-%%     ConfigItem = {Key, Value},
-%%         Key = atom() | {class, ClassName, ClassParam},
-%%         ClassName = string(),
-%%         ClassParam = atom(),
-%%         Value = term(),
-%%     Config = [{CfgKey, CfgValue}],
-%%         CfgKey = atom(),
-%%         CfgValue = term(),
-%%     Classes = [{ClassName, Domains, Regexps, RedirectURL}],
-%%         Domains = [string()],
-%%         Regexps = [string()],
-%%         RedirectURL = undefined | string(),
-%%     MimeTypes = [{FileSuffix, MimeType}],
-%%         FileSuffix = string(),
-%%         MimeType = string()
-assemble_config(CfgItems) ->
-    Config =
-        [{?CFG_LOGLEVEL,
-          case [V || {?CFG_LOGLEVEL, V} <- CfgItems] of
-              [LogLevel | _] ->
-                  logcfg(?CFG_LOGLEVEL, LogLevel),
-                  LogLevel;
-              _ -> set_default(?CFG_LOGLEVEL)
-          end},
-         {?CFG_IP_DENY_REDIRECT,
-          case [V || {?CFG_IP_DENY_REDIRECT, [_ | _] = V} <- CfgItems] of
-              [IpDenyRedirect | _] ->
-                  logcfg(?CFG_IP_DENY_REDIRECT, IpDenyRedirect),
-                  IpDenyRedirect;
-              _ -> set_default(?CFG_IP_DENY_REDIRECT)
-          end},
-         {?CFG_URL_DENY_REDIRECT,
-          case [V || {?CFG_URL_DENY_REDIRECT, [_ | _] = V} <- CfgItems] of
-              [UrlDenyRedirect | _] ->
-                  logcfg(?CFG_URL_DENY_REDIRECT, UrlDenyRedirect),
-                  UrlDenyRedirect;
-              _ -> set_default(?CFG_URL_DENY_REDIRECT)
-          end},
-         {?CFG_ORDER,
-          case [V || {?CFG_ORDER, V} <- CfgItems] of
-              [Order | _] ->
-                  logcfg(?CFG_ORDER, Order),
-                  Order;
-              _ -> set_default(?CFG_ORDER)
-          end},
-         {?CFG_PRIVILEGED,
-          case [V || {?CFG_PRIVILEGED, V} <- CfgItems] of
-              [_ | _] = Privileged0 ->
-                  Privileged = erjik_lib:flatten_ip_pool(Privileged0),
-                  logcfg(?CFG_PRIVILEGED, Privileged),
-                  Privileged;
-              _ -> set_default(?CFG_PRIVILEGED)
-          end},
-         {?CFG_ALLOW,
-          case [V || {?CFG_ALLOW, V} <- CfgItems] of
-              [_ | _] = Allow0 ->
-                  Allow = erjik_lib:flatten_ip_pool(Allow0),
-                  logcfg(?CFG_ALLOW, Allow),
-                  Allow;
-              _ -> set_default(?CFG_ALLOW)
-          end},
-         {?CFG_DENY,
-          case [V || {?CFG_DENY, V} <- CfgItems] of
-              [_ | _] = Deny0 ->
-                  Deny = erjik_lib:flatten_ip_pool(Deny0),
-                  logcfg(?CFG_DENY, Deny),
-                  Deny;
-              _ -> set_default(?CFG_DENY)
-          end},
-         {?CFG_IP_DEFAULT_POLICY,
-          case [V || {?CFG_IP_DEFAULT_POLICY, V} <- CfgItems] of
-              [IpDefaultPolicy | _] ->
-                  logcfg(?CFG_IP_DEFAULT_POLICY, IpDefaultPolicy),
-                  IpDefaultPolicy;
-              _ -> set_default(?CFG_IP_DEFAULT_POLICY)
-          end},
-         {?CFG_URL_DEFAULT_POLICY,
-          case [V || {?CFG_URL_DEFAULT_POLICY, V} <- CfgItems] of
-              [UrlDefaultPolicy | _] ->
-                  logcfg(?CFG_URL_DEFAULT_POLICY, UrlDefaultPolicy),
-                  UrlDefaultPolicy;
-              _ -> set_default(?CFG_URL_DEFAULT_POLICY)
-          end},
-         {?CFG_BIND_IP,
-          case [V || {?CFG_BIND_IP, V} <- CfgItems] of
-              [BindIP | _] ->
-                  logcfg(?CFG_BIND_IP, BindIP),
-                  BindIP;
-              _ -> set_default(?CFG_BIND_IP)
-          end},
-         {?CFG_BIND_PORT,
-          case [V || {?CFG_BIND_PORT, V} <- CfgItems] of
-              [BindPort | _] ->
-                  logcfg(?CFG_BIND_PORT, BindPort),
-                  BindPort;
-              _ -> set_default(?CFG_BIND_PORT)
-          end},
-         {?CFG_WWW_ROOT,
-          case [V || {?CFG_WWW_ROOT, V} <- CfgItems] of
-              [WwwRoot | _] ->
-                  logcfg(?CFG_WWW_ROOT, WwwRoot),
-                  WwwRoot;
-              _ -> set_default(?CFG_WWW_ROOT)
-          end},
-         {?CFG_MIME_TYPES,
-          case [V || {?CFG_MIME_TYPES, V} <- CfgItems] of
-              [MimeTypes | _] ->
-                  logcfg(?CFG_MIME_TYPES, MimeTypes),
-                  MimeTypes;
-              _ -> set_default(?CFG_MIME_TYPES)
-          end}],
-    %% read blacklists...
-    Classes0 =
-        lists:map(
-          fun(ClassName) ->
-                  PL = [{K, V} ||
-                           {{class, C, K}, V} <- CfgItems,
-                           C == ClassName],
-                  {ClassName,
-                   case [V || {?CFG_CLASS_DOMAINS, V} <- PL] of
-                       [[_ | _] = DomainsFilename | _] ->
-                           read_blacklist(DomainsFilename);
-                       _ -> []
-                   end,
-                   case [V || {?CFG_CLASS_REGEXPS, V} <- PL] of
-                       [[_ | _] = RegexpsFilename | _] ->
-                           read_blacklist(RegexpsFilename);
-                       _ -> []
-                   end,
-                   case [V || {?CFG_CLASS_REDIRECT, V} <- PL] of
-                       [[_ | _] = URL | _] -> URL;
-                       _ -> undefined
-                   end}
-          end, erjik_lib:uniq([N || {{class, N, _}, _} <- CfgItems])),
-    %% drop classes with empty lists...
-    Classes =
-        lists:filter(
-          fun({ClassName, [], [], _}) ->
+-spec assemble_config(CfgItems :: raw_config()) ->
+                             {Config :: config(),
+                              Classes :: classes(),
+                              MimeTypes :: mime_types()}.
+assemble_config(RawConfig) ->
+    Config = assemble_simple(RawConfig),
+    MimeTypesFilename = proplists:get_value(?CFG_MIME_TYPES, Config),
+    {Config,
+     _Classes = assemble_classes(RawConfig),
+     _MimeTypes = read_mime_types(MimeTypesFilename)}.
+
+%% @doc
+-spec assemble_simple(RawConfig :: raw_config()) -> Config :: config().
+assemble_simple(RawConfig) ->
+    [begin
+         ValuesFound = [V || {K, V} <- RawConfig, K == Key],
+         {Key,
+          case assemble_simple_key(Key, ValuesFound) of
+              {ok, Value} ->
                   ?loginf(
-                     "~w> config: class \"~s\" dropped off becouse of "
-                     "empty list of domains and regexps",
-                     [?MODULE, ClassName]),
-                  false;
-             (_) -> true
-          end, Classes0),
+                     "~w> config: '~w' set to: ~s",
+                     [?MODULE, Key, cfg_to_list(Key, Value)]),
+                  Value;
+              undefined ->
+                  Value = get_default_value(Key),
+                  ?loginf(
+                     "~w> config: '~w' set to default: ~s",
+                     [?MODULE, Key, cfg_to_list(Key, Value)]),
+                  Value
+          end}
+     end || Key <- ?CFGS_SIMPLE].
+
+-spec assemble_simple_key(Key :: config_simple_key(), Values :: list()) ->
+                                 {ok, Value :: any()} | undefined.
+assemble_simple_key(_Key, _NoValues = []) ->
+    undefined;
+assemble_simple_key(Key, Values)
+  when Key == ?CFG_IP_DENY_REDIRECT; Key == ?CFG_URL_DENY_REDIRECT ->
+    case [NotEmpty || NotEmpty = [_ | _] <- Values] of
+        [FirstNotEmpty | _] ->
+            {ok, FirstNotEmpty};
+        [] ->
+            undefined
+    end;
+assemble_simple_key(Key, Values)
+  when Key == ?CFG_PRIVILEGED; Key == ?CFG_ALLOW; Key == ?CFG_DENY ->
+    {ok, erjik_lib:flatten_ip_pool(Values)};
+assemble_simple_key(_Key, [FirstFound | _]) ->
+    {ok, FirstFound}.
+
+%% @doc Assemble classes configurations.
+-spec assemble_classes(RawConfig :: raw_config()) ->
+                              [{ClassName :: nonempty_string(),
+                                Domains :: [nonempty_string()],
+                                Regexps :: [nonempty_string()],
+                                RedirectURL :: nonempty_string() | undefined
+                               }].
+assemble_classes(RawConfig) ->
+    Classes =
+        lists:flatmap(
+          fun(ClassName) ->
+                  case assemble_class(RawConfig, ClassName) of
+                      {ClassName, [], [], _RedirectURL} ->
+                          ?loginf(
+                             "~w> config: class \"~s\" dropped off because"
+                             " of empty list of domains and regexps",
+                             [?MODULE, ClassName]),
+                          [];
+                      ClassData ->
+                          [ClassData]
+                  end
+          end, erjik_lib:uniq([N || {{class, N, _}, _} <- RawConfig])),
     case Classes of
         [] ->
             ?logwrn(
@@ -420,11 +408,37 @@ assemble_config(CfgItems) ->
                [?MODULE]);
         _ -> nop
     end,
-    {Config, Classes, read_mime_types()}.
+    Classes.
+
+%% @doc
+-spec assemble_class(RawConfig :: raw_config(),
+                     ClassName :: nonempty_string()) ->
+                            {ClassName :: nonempty_string(),
+                             Domains :: [nonempty_string()],
+                             Regexps :: [nonempty_string()],
+                             RedirectURL :: nonempty_string() | undefined}.
+assemble_class(RawConfig, ClassName) ->
+    PL = [{K, V} || {{class, C, K}, V} <- RawConfig, C == ClassName],
+    {ClassName,
+     case [V || {?CFG_CLASS_DOMAINS, V} <- PL] of
+         [[_ | _] = DomainsFilename | _] ->
+             read_blacklist(DomainsFilename);
+         _ -> []
+     end,
+     case [V || {?CFG_CLASS_REGEXPS, V} <- PL] of
+         [[_ | _] = RegexpsFilename | _] ->
+             read_blacklist(RegexpsFilename);
+         _ -> []
+     end,
+     case [V || {?CFG_CLASS_REDIRECT, V} <- PL] of
+         [[_ | _] = URL | _] -> URL;
+         _ -> undefined
+     end}.
 
 %% @doc Inserts configuration data to database (ETSes)
-%% @spec apply_config(Configs) -> ok
-%%     Configs = term()
+-spec apply_config({Config :: config(),
+                    Classes :: classes(),
+                    MimeTypes :: mime_types()}) -> ok.
 apply_config({Config, Classes, MimeTypes}) ->
     IpDefaultPolicy = proplists:get_value(?CFG_IP_DEFAULT_POLICY, Config),
     UrlDefaultPolicy = proplists:get_value(?CFG_URL_DEFAULT_POLICY, Config),
@@ -456,18 +470,7 @@ apply_config({Config, Classes, MimeTypes}) ->
 %% ----------------------------------------------------------------------
 %% low level parsers and data processing tools
 
-logcfg(Key, Value) ->
-    ?loginf(
-       "~w> config: '~w' set to: ~s",
-       [?MODULE, Key, cfg_to_list(Key, Value)]).
-
-set_default(Key) ->
-    Value = get_default_value(Key),
-    ?loginf(
-       "~w> config: '~w' set to default: ~s",
-       [?MODULE, Key, cfg_to_list(Key, Value)]),
-    Value.
-
+-spec cfg_to_list(Key :: atom(), Value :: any()) -> string().
 cfg_to_list(?CFG_LOGLEVEL, LogLevel) -> atom_to_list(LogLevel);
 cfg_to_list(?CFG_IP_DENY_REDIRECT, URL) -> URL;
 cfg_to_list(?CFG_URL_DENY_REDIRECT, URL) -> URL;
@@ -493,6 +496,8 @@ cfg_to_list(?CFG_BIND_PORT, BindPort) ->
 cfg_to_list(?CFG_WWW_ROOT, WwwRoot) -> WwwRoot;
 cfg_to_list(?CFG_MIME_TYPES, MimeTypes) -> MimeTypes.
 
+-spec read_blacklist(Filename :: file:filename()) ->
+                            [Line :: nonempty_string()].
 read_blacklist(Filename) ->
     case file:read_file(Filename) of
         {ok, Binary} ->
@@ -510,6 +515,33 @@ read_blacklist(Filename) ->
             []
     end.
 
+-spec parse_key_val_pair({LineNo :: non_neg_integer(),
+                          StrKey :: nonempty_string(),
+                          StrValue :: string()}) ->
+                                [{Key :: raw_config_item_key(),
+                                  Value :: any()}].
+parse_key_val_pair({LineNo, StrKey, StrValue}) ->
+    case parse_key(StrKey) of
+        {ok, Key} ->
+            case parse_val(Key, StrValue) of
+                {ok, Value} ->
+                    [{Key, Value}];
+                error ->
+                    ?logerr(
+                       "~w> config: bad value on line ~w "
+                       "for key '~s': \"~s\"",
+                       [?MODULE, LineNo, StrKey, StrValue]),
+                    []
+            end;
+        error ->
+            ?logerr(
+               "~w> config: bad key on line ~w: \"~s\"",
+               [?MODULE, LineNo, StrKey]),
+            []
+    end.
+
+-spec parse_key(String :: nonempty_string()) ->
+                       {ok, Key :: raw_config_item_key()} | error.
 parse_key("class." ++ String) ->
     case parse_class_key(String, []) of
         {ok, ClassName, ClassParam} ->
@@ -523,6 +555,10 @@ parse_key("class." ++ String) ->
 parse_key(String) ->
     erjik_lib:list_to_atom(String, ?CFGS_SIMPLE).
 
+-spec parse_class_key(String :: string(), Acc :: list()) ->
+                             {ok, ClassName :: nonempty_string(),
+                              ClassParam :: nonempty_string()} |
+                             error.
 parse_class_key([], _) -> error;
 parse_class_key([$. | _], []) -> error;
 parse_class_key([$. | ConfigName], ClassName) ->
@@ -534,9 +570,14 @@ parse_class_key([C | Tail], ClassName)
     parse_class_key(Tail, [C | ClassName]);
 parse_class_key(_, _) -> error.
 
+-spec parse_val(Key :: raw_config_item_key(), Value :: string()) ->
+                       {ok, Value :: any()} | error.
 parse_val(Key, StrValue) ->
     try {ok, _Value} = parse_val_(Key, StrValue)
     catch _:_ -> error end.
+
+-spec parse_val_(Key :: atom(), String :: string()) ->
+                        {ok, Value :: any()}.
 parse_val_(?CFG_LOGLEVEL, String) ->
     erjik_lib:list_to_atom(
       string:to_lower(String), ?LOGLEVELS);
@@ -570,9 +611,7 @@ parse_val_(?CFG_ORDER, String) ->
 parse_val_(?CFG_BIND_IP, String) ->
     erjik_lib:list_to_ip(String);
 parse_val_(?CFG_BIND_PORT, String) ->
-    Int = list_to_integer(String),
-    true = 0 < Int andalso Int < 16#ffff,
-    {ok, Int};
+    {ok, erjik_lib:list_to_port_number(String)};
 parse_val_(?CFG_WWW_ROOT, String) ->
     {ok, String};
 parse_val_(?CFG_MIME_TYPES, [_ | _] = String) ->
@@ -587,6 +626,8 @@ parse_val_({class, [_ | _] = _ClassName, ?CFG_CLASS_REDIRECT},
            [_ | _] = String) ->
     {ok, String}.
 
+-spec parse_ip_range(String :: string()) ->
+                            {ok, any | none | erjik_lib:ip_range()}.
 parse_ip_range(String) ->
     case string:to_lower(String) of
         "any" -> {ok, any};
@@ -598,19 +639,21 @@ parse_ip_range(String) ->
 %% ----------------------------------------------------------------------
 %% mime types
 
-default_mime_types() ->
-    [{"text/html", ["htm", "html"]},
-     {"text/plain", ["txt"]},
-     {"text/css", ["css"]}].
-
-read_mime_types() ->
+%% @doc
+-spec read_mime_types(Filename :: file:filename()) -> mime_types().
+read_mime_types(Filename) ->
     [{string:to_lower(Ext), string:to_lower(Name)} ||
-        {Name, List} <- read_mime_types_(),
+        {Name, List} <- read_mime_types_file(Filename),
         Ext <- List].
-read_mime_types_() ->
-    Filename = erjik_cfg:get(?CFG_MIME_TYPES),
+
+%% @doc
+-spec read_mime_types_file(Filename :: file:filename()) ->
+                                  [{MimeType :: nonempty_string(),
+                                    Extensions :: [nonempty_string()]}].
+read_mime_types_file(Filename) ->
     case erjik_lib:read_mime_types(Filename) of
-        {ok, List} -> List;
+        {ok, List} ->
+            List;
         {error, Reason} ->
             ?logerr(
                "~w> failed to read mime types from \"~s\": ~9999p. "
@@ -619,9 +662,21 @@ read_mime_types_() ->
             default_mime_types()
     end.
 
+%% @doc
+-spec default_mime_types() -> [{MimeType :: nonempty_string(),
+                                Extensions :: [nonempty_string()]}].
+default_mime_types() ->
+    [{"text/html", ["htm", "html"]},
+     {"text/plain", ["txt"]},
+     {"text/css", ["css"]}].
+
 %% ----------------------------------------------------------------------
 %% URL classification routines
 
+-spec classify(URL :: nonempty_string(), Hostname :: nonempty_string(),
+               IsIP :: boolean()) ->
+                      {ok, ClassName :: nonempty_string()} |
+                      undefined.
 classify(URL, Hostname, IsIP) ->
     case classify_(URL, Hostname, IsIP) of
         {ok, _ClassName} = Ok -> Ok;
@@ -631,6 +686,11 @@ classify(URL, Hostname, IsIP) ->
                 _ -> undefined
             end
     end.
+
+-spec classify_(URL :: nonempty_string(), Hostname :: nonempty_string(),
+                IsIP :: boolean()) ->
+                       {ok, ClassName :: nonempty_string()} |
+                       undefined.
 classify_(_URL, StrIP, true) ->
     case ets:lookup(?FAC_DOMAINS, StrIP) of
         [{_, ClassName}] -> {ok, ClassName};
@@ -639,6 +699,9 @@ classify_(_URL, StrIP, true) ->
 classify_(_URL, Domain, _IsIP = false) ->
     classify_domain(string:tokens(Domain, ".")).
 
+-spec classify_domain(DomainTokens :: [nonempty_string()]) ->
+                             {ok, ClassName :: nonempty_string()} |
+                             undefined.
 classify_domain([_ | Tail] = Tokens) ->
     Domain = string:join(Tokens, "."),
     case ets:lookup(?FAC_DOMAINS, Domain) of
@@ -647,9 +710,19 @@ classify_domain([_ | Tail] = Tokens) ->
     end;
 classify_domain(_) -> undefined.
 
+-spec get_class_redirect_url(ClassName :: nonempty_string()) ->
+                                    (URL :: nonempty_string()) | undefined.
 get_class_redirect_url(ClassName) ->
     case ets:lookup(?FAC_DOMAINS, {url, ClassName}) of
         [{_, [_ | _] = URL}] -> URL;
         _ -> undefined
     end.
+
+%% ----------------------------------------------------------------------
+%% eunit tests
+%% ----------------------------------------------------------------------
+
+-ifdef(TEST).
+
+-endif.
 

@@ -1,10 +1,13 @@
+%%% @doc
+%%% Replaces OTP error logger to not mess stdout with various extra reports.
+
 %%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
 %%% @since 7 Jul 2012
 %%% @copyright 2009-2012, Aleksey Morarash
-%%% @doc Replaces OTP error logger to not mess stdout with
-%%%      various extra reports.
 
 -module(erjik_error_logger).
+
+-behaviour(gen_event).
 
 %% API exports
 -export([install/0]).
@@ -21,7 +24,7 @@
 
 %% @doc Installs itself as main error logger, removing all other
 %%      error logger event listeners.
-%% @spec install() -> ok
+-spec install() -> ok.
 install() ->
     ErrorLogger = error_logger,
     lists:foreach(
@@ -38,11 +41,14 @@ install() ->
 -record(state, {}).
 
 %% @hidden
+-spec init(Args :: any()) -> {ok, InitialState :: #state{}}.
 init(_Args) ->
     ?logdbg("~w> installed", [?MODULE]),
     {ok, #state{}}.
 
 %% @hidden
+-spec handle_event(Event :: any(), State :: #state{}) ->
+                          {ok, NewState :: #state{}}.
 handle_event({info_report, _Pid, _Data} = Event, State) ->
     ?logdbg("~w> ~9999999999p", [?MODULE, Event]),
     {ok, State};
@@ -52,21 +58,28 @@ handle_event(Event, State) ->
     {ok, State}.
 
 %% @hidden
+-spec handle_call(Request :: any(), State :: #state{}) ->
+                         {ok, ignore, State :: #state{}}.
 handle_call(Request, State) ->
     ?logwrn("~w> unknown call: ~9999p", [?MODULE, Request]),
     {ok, _Reply = ignore, State}.
 
 %% @hidden
+-spec handle_info(Info :: any(), State :: #state{}) ->
+                         {ok, State :: #state{}}.
 handle_info(Info, State) ->
     ?logwrn("~w> unknown info: ~9999p", [?MODULE, Info]),
     {ok, State}.
 
 %% @hidden
+-spec terminate(Reason :: any(), State :: #state{}) -> ok.
 terminate(_Arg, _State) ->
     ?logdbg("~w> terminating", [?MODULE]),
     ok.
 
 %% @hidden
+-spec code_change(OldVersion :: any(), State :: #state{}, Extra :: any()) ->
+                         {ok, NewState :: #state{}}.
 code_change(OldVsn, State, Extra) ->
     ?logdbg(
        "~w> code_change(~9999p, ~9999p, ~9999p)",

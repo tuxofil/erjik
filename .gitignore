@@ -11,3 +11,6 @@ erl_crash.dump
 *.log.?
 .dialyzer_plt
 Emakefile
+erjik
+erjik.zip
+tmp_file

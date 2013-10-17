@@ -22,40 +22,49 @@
 
 -include("erjik.hrl").
 
+%% ----------------------------------------------------------------------
+%% Types definitions
+%% ----------------------------------------------------------------------
+
+-export_type(
+   [severity/0
+   ]).
+
+-type severity() :: 1..4.
+
+%% state record
+-record(state, {loglevel = ?LOGLEVEL_INFO, handle}).
+
 %% --------------------------------------------------------------------
 %% API functions
 %% --------------------------------------------------------------------
 
 %% @doc Start logger process as part of supervision tree.
-%% @spec start_link() -> {ok, pid()}
+-spec start_link() -> {ok, Pid :: pid()} | ignore | {error, Reason :: any()}.
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %% @doc Sends signal to logger process to reopen log file and
 %%      reread its configurations.
-%% @spec hup() -> ok
+-spec hup() -> ok.
 hup() ->
     gen_server:cast(?MODULE, ?SIG_RECONFIG).
 
 %% @doc Sends message to logger process.
-%% @spec log(Severity, Format, Args) -> ok
-%%     Severity = 1 | 2 | 3 | 4,
-%%     Format = string(),
-%%     Args = list()
+-spec log(Severity :: severity(), Format :: string(), Args :: list()) -> ok.
 log(Severity, Format, Args) ->
     catch ?MODULE ! {msg, now(), Severity, Format, Args},
     ok.
 
 %% @doc Return process state term.
 %% @hidden
-%% @spec state() -> {ok, State}
-%%     State = term()
+-spec state() -> #state{}.
 state() ->
     gen_server:call(?MODULE, ?SIG_STATE).
 
 %% @doc Flush and close log file. Usually called before
 %%      VM termination.
-%% @spec flush() -> ok
+-spec flush() -> ok.
 flush() ->
     gen_server:call(?MODULE, ?SIG_FLUSH).
 
@@ -63,10 +72,8 @@ flush() ->
 %% gen_server callbacks
 %% ----------------------------------------------------------------------
 
-%% state record
--record(state, {loglevel = ?LOGLEVEL_INFO, handle}).
-
 %% @hidden
+-spec init(Args :: any()) -> {ok, InitialState :: #state{}}.
 init(_Args) ->
     %% trap exits for correct file close on termination
     process_flag(trap_exit, true),
@@ -74,6 +81,8 @@ init(_Args) ->
     {ok, #state{}}.
 
 %% @hidden
+-spec handle_info(Info :: any(), State :: #state{}) ->
+                         {noreply, State :: #state{}}.
 handle_info({msg, Time, Severity, Format, Args}, State)
   when State#state.handle /= undefined,
        State#state.loglevel >= Severity ->
@@ -85,7 +94,7 @@ handle_info({msg, Time, Severity, Format, Args}, State)
               [erjik_lib:timestamp(Time),
                severity_to_list(Severity),
                Payload]),
-        file:write(State#state.handle, Message)
+        ok = file:write(State#state.handle, Message)
     catch
         Type:Reason ->
             CrashMessage =
@@ -96,15 +105,18 @@ handle_info({msg, Time, Severity, Format, Args}, State)
                    severity_to_list(1),
                    Format, Args,
                    {Type, Reason, erlang:get_stacktrace()}]),
-            file:write(State#state.handle, CrashMessage)
+            ok = file:write(State#state.handle, CrashMessage)
     end,
     {noreply, State};
 handle_info(_Request, State) ->
     {noreply, State}.
 
 %% @hidden
+-spec handle_call(Request :: any(), From :: any(), State :: #state{}) ->
+                         {reply, Reply :: any(), NewState :: #state{}} |
+                         {noreply, NewState :: #state{}}.
 handle_call(?SIG_STATE, _From, State) ->
-    {reply, {ok, State}, State};
+    {reply, State, State};
 handle_call(?SIG_FLUSH, _From, State) ->
     catch file:close(State#state.handle),
     {reply, ok, State#state{handle = undefined}};
@@ -112,6 +124,8 @@ handle_call(_Request, _From, State) ->
     {noreply, State}.
 
 %% @hidden
+-spec handle_cast(Request :: any(), State :: #state{}) ->
+                         {noreply, NewState :: #state{}}.
 handle_cast(?SIG_RECONFIG, State) ->
     catch file:close(State#state.handle),
     Filename =
@@ -135,10 +149,14 @@ handle_cast(_Request, State) ->
     {noreply, State}.
 
 %% @hidden
+-spec terminate(Reason :: any(), State :: #state{}) -> ok.
 terminate(_Reason, State) ->
-    catch file:close(State#state.handle).
+    catch file:close(State#state.handle),
+    ok.
 
 %% @hidden
+-spec code_change(OldVersion :: any(), State :: #state{}, Extra :: any()) ->
+                         {ok, NewState :: #state{}}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -146,12 +164,14 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %% ----------------------------------------------------------------------
 
+-spec loglevel_to_severity(erjik_cfg:loglevel()) -> 0 | severity().
 loglevel_to_severity(?LOGLEVEL_NONE) -> 0;
 loglevel_to_severity(?LOGLEVEL_ERROR) -> 1;
 loglevel_to_severity(?LOGLEVEL_WARNING) -> 2;
 loglevel_to_severity(?LOGLEVEL_INFO) -> 3;
 loglevel_to_severity(?LOGLEVEL_DEBUG) -> 4.
 
+-spec severity_to_list(severity()) -> nonempty_string().
 severity_to_list(1) -> "ERROR";
 severity_to_list(2) -> "WARNING";
 severity_to_list(3) -> "INFO";

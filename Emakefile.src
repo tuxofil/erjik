@@ -1,5 +1,0 @@
-{['src/*'],
- [{outdir, "ebin"},
-  {i, "include"},
-  {{COPTS}}
- ]}.
