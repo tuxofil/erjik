@@ -36,10 +36,12 @@ compile:
 	erl -noinput -eval "up_to_date=make:all([$(COPTS)]),halt()"
 
 $(APP): compile
+	rm -f -- $(APP).zip
 	zip -j $(APP) ebin/*
 	echo '#!/usr/bin/env escript' > $(APP)
 	echo '%%!-smp -kernel inet_dist_use_interface {127,0,0,1}' >> $(APP)
 	cat $(APP).zip >> $(APP)
+	rm -f -- $(APP).zip
 	chmod 755 $(APP)
 
 EDOC_OPTS = {application, $(APP)}, {preprocess, true}
