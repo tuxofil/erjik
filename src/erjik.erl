@@ -52,7 +52,8 @@ main(Args) ->
             nop
     end,
     ConfigPath = proplists:get_value(config, ParsedArgs),
-    {InstanceID, Cookie} = erjik_config_parser:read_daemon_cfg(ConfigPath),
+    {InstanceID, Cookie} =
+        erjik_config_parser:read_instance_cfg(ConfigPath),
     case proplists:is_defined(hup, ParsedArgs) of
         true ->
             do_hup(InstanceID, Cookie);

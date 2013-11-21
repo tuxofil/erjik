@@ -10,7 +10,7 @@
 %% API exports
 -export(
    [read/1,
-    read_daemon_cfg/1,
+    read_instance_cfg/1,
     read_logger_cfg/1,
     get_default_value/1
    ]).
@@ -115,10 +115,10 @@ read(ConfigPath) ->
     assemble_config(parse_config(read_config_file(ConfigPath))).
 
 %% @doc Read Erjik Instance ID and Cookie from the main configuration file.
--spec read_daemon_cfg(ConfigPath :: file:filename()) ->
-                             {DaemonID :: atom(),
-                              Cookie :: atom()}.
-read_daemon_cfg(ConfigPath) ->
+-spec read_instance_cfg(ConfigPath :: file:filename()) ->
+                               {DaemonID :: atom(),
+                                Cookie :: atom()}.
+read_instance_cfg(ConfigPath) ->
     Config = assemble_simple(parse_config(read_config_file(ConfigPath))),
     {proplists:get_value(?CFG_INSTANCE_ID, Config),
      proplists:get_value(?CFG_COOKIE, Config)}.
