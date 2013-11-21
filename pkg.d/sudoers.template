@@ -1,8 +1,0 @@
-Defaults        lecture = never, passwd_tries = 1
-User_Alias      ERJIK_USERS = root,proxy
-ERJIK_USERS     ALL = (erjik) NOPASSWD: {{SBIN_DIR}}/erjik
-ERJIK_USERS     ALL = (erjik) NOPASSWD: {{SBIN_DIR}}/erjik-hup
-ERJIK_USERS     ALL = (erjik) NOPASSWD: {{SBIN_DIR}}/erjik-remsh
-ERJIK_USERS     ALL = (erjik) NOPASSWD: {{SBIN_DIR}}/erjik-stop
-ALL             ALL = (erjik) NOPASSWD: {{SBIN_DIR}}/erjik-ping
-

@@ -2,8 +2,7 @@ APP = erjik
 
 VERSION = $(shell cat version)
 
-.PHONY: all compile doc clean eunit dialyze all-tests \
-	install-doc install-html debian-install debian-uninstall
+.PHONY: all compile doc clean eunit dialyze all-tests install uninstall
 
 all: $(APP)
 
@@ -76,71 +75,21 @@ clean:
 	    *.log *.log.* tmp_file
 	find . -type f -name '*~' -delete
 
-install-doc:
-	install -m 755 --directory $(DESTDIR)
-	install -m 644 README.md LICENSE $(DESTDIR)/
-
-install-html: html
-	install -m 755 --directory $(DESTDIR)
-	install -m 644 doc/*.html doc/*.css doc/*.png $(DESTDIR)/
-
 ## ----------------------------------------------------------------------
 ## installation/deinstallation section
 
-conf_dir    = /etc/$(APP)
-sudoers_dir = /etc/sudoers.d
-sbin_dir    = /usr/sbin
-doc_dir     = /usr/share/doc/$(APP)
-log_dir     = /var/log/$(APP)
+install: $(APP)
+	install -m 755 -d $(DESTDIR)/etc
+	install -m 644 erjik.conf $(DESTDIR)/etc
+	install -m 755 -d $(DESTDIR)/usr/sbin
+	install -m 755 erjik $(DESTDIR)/usr/sbin
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/lists/domains
+	install -m 644 pkg.d/lists/domains/* $(DESTDIR)/var/lib/erjik/lists/domains
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/lists/regexps
+	install -m 644 pkg.d/lists/regexps/* $(DESTDIR)/var/lib/erjik/lists/regexps
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/www
+	install -m 644 pkg.d/www-root/* $(DESTDIR)/var/lib/erjik/www
 
-blacklists_dir = $(conf_dir)/blacklists
-regexps_dir    = $(conf_dir)/regexps
-www_dir        = $(install_dir)/priv/www
-
-INSTALL_DIR  = install --directory --mode=0755 --
-INSTALL_DATA = install --mode=0644 --
-INSTALL_SUDO = install --mode=0440 --
-INSTALL_PROG = install --mode=0755 --
-
-debian-install: compile
-	$(INSTALL_DIR) \
-	    $(DESTDIR)$(www_dir) \
-	    $(DESTDIR)$(conf_dir) \
-	    $(DESTDIR)$(blacklists_dir) $(DESTDIR)$(regexps_dir) \
-	    $(DESTDIR)$(sudoers_dir) \
-	    $(DESTDIR)$(sbin_dir) \
-	    $(DESTDIR)$(doc_dir) \
-	    $(DESTDIR)$(log_dir)
-	cat $(APP).conf.template | \
-	    sed 's@{{VERSION}}@$(VERSION)@g' | \
-	    sed 's@{{BLACKLISTS}}@$(blacklists_dir)@g' | \
-	    sed 's@{{REGEXPS}}@$(regexps_dir)@g' | \
-	    sed 's@{{WWW_ROOT}}@$(www_dir)@g' | \
-	    $(INSTALL_DATA) /dev/stdin $(DESTDIR)$(conf_dir)/$(APP).conf
-	$(INSTALL_DATA) priv/www/*.html $(DESTDIR)$(www_dir)
-	$(INSTALL_DATA) priv/blacklists/* $(DESTDIR)$(blacklists_dir)
-	$(INSTALL_DATA) priv/regexps/* $(DESTDIR)$(regexps_dir)
-	$(INSTALL_DATA) README.md LICENSE $(DESTDIR)$(doc_dir)
-	cat sudoers.template | \
-	    sed 's@{{SBIN_DIR}}@$(sbin_dir)@g' | \
-	    $(INSTALL_SUDO) /dev/stdin $(DESTDIR)$(sudoers_dir)/erjik
-	cat scripts/erjik | \
-	    sed 's@{{CONF_DIR}}@$(conf_dir)@g' | \
-	    sed 's@{{LOG_DIR}}@$(log_dir)@g' | \
-	    $(INSTALL_PROG) /dev/stdin $(DESTDIR)$(sbin_dir)/erjik
-	$(INSTALL_PROG) \
-	    scripts/erjik-hup scripts/erjik-ping \
-	    scripts/erjik-remsh scripts/erjik-stop \
-	    $(DESTDIR)$(sbin_dir)
-	$(INSTALL_DATA) scripts/erjik-functions $(DESTDIR)$(sbin_dir)
-
-debian-uninstall:
-	rm --force --recursive --verbose -- \
-	    $(DESTDIR)$(www_dir) \
-	    $(DESTDIR)$(conf_dir) \
-	    $(DESTDIR)$(blacklists_dir) $(DESTDIR)$(regexps_dir) \
-	    $(DESTDIR)$(doc_dir) \
-	    $(DESTDIR)$(log_dir) \
-	    $(DESTDIR)$(sudoers_dir)/erjik \
-	    $(DESTDIR)$(sbin_dir)/erjik*
-
+uninstall:
+	rm -rf -- $(DESTDIR)/etc/erjik.conf \
+	    $(DESTDIR)/usr/sbin/erjik $(DESTDIR)/var/lib/erjik
