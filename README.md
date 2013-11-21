@@ -9,14 +9,13 @@
 
 ## License
 
-erjik uses FreeBSD License. You can find full license text
+Erjik uses FreeBSD License. You can find full license text
 on http://www.freebsd.org/copyright/freebsd-license.html or
-in file LICENSE on the top of erjik sources tree.
+in file LICENSE on the top of the Erjik source tree.
 
 ## Requirements
 
 * mime-support;
-* sudo;
 * erlang;
 * erlang-inets.
 
@@ -27,34 +26,20 @@ Build requires:
 
 ## Building
 
-Erlang must be installed to build and run erjik.
+Erlang must be installed to build and run Erjik.
 You always can obtain latest Erlang version on
-http://www.erlang.org/download.html or use one provided by
+http://www.erlang.org/download.html or use the one provided by
 your software repository.
 
-erjik is developed and tested with Erlang R14A but probably
+Erjik is developed and tested with Erlang R14A but probably
 will work with older Erlang versions.
 
     $ make
 
 ## Installing
 
-You need to build erjik and documentation to install it:
-
-    $ make all doc
-
-Chdir to top of erjik sources tree and run:
-
+    $ make
     $ sudo make install
-
-You need to create special user for erjik because 'make install' does not
-creates it:
-
-    $ sudo adduser --system --home /var/log/erjik --shell /bin/sh erjik
-
-And the last, make sure /var/log/erjik directory is writable by erjik user:
-
-    $ sudo chown -R erjik: /var/log/erjik
 
 ### Staged installation
 
@@ -62,7 +47,7 @@ Use DESTDIR environment variable.
 
 ### Uninstallation
 
-To remove erjik from system type:
+To completely remove the Erjik from the system type:
 
     $ sudo make uninstall
 
@@ -70,9 +55,22 @@ To remove erjik from system type:
 
 Add this lines to your squid.conf:
 
-    url_rewrite_program /usr/sbin/erjik
+    url_rewrite_program /usr/sbin/erjik /etc/erjik.conf
     url_rewrite_concurrency 1
     url_rewrite_children 1
+
+## Maintainance
+
+Normally Erjik is started by Squid so you don't need to
+launch it manually.
+
+Apply new configuration, reopen log file:
+
+    $ /usr/sbin/erjik --hup /etc/erjik.conf
+
+Check if Erjik is alive or not:
+
+    $ /usr/sbin/erjik --ping /etc/erjik.conf
 
 ## Testing
 
@@ -85,47 +83,33 @@ spaces or TABs:
     RequestID URL SourceIP
 
 RequestID - is identifier of request to distinguish multiple
-requests in single pipe. Each erjik answer will be prefixed
-with the same RequestID string. This is the way to use
-multithreaded URL rewritings with one instance of URL
-rewriter process started in Squid.
+requests in single pipe. An answer will be prefixed with the
+same RequestID string. This is the way to use multithreaded URL
+rewritings with one instance of URL rewriter process started in Squid.
 
-URL - is the URL requested by users browser.
+URL - is the URL requested by the user's browser.
 
-SourceIP - is the user IP address.
+SourceIP - is the user's IP address.
 
-Each answer will look like:
+The answer will look like:
 
     RequestID FinalURL
 
-FinalURL - URL of destination page which will be provided to
-user. When user is allowed to get source URL, FinalURL will be
-the same as source URL otherwise FinalURL will point to so called
+FinalURL is an URL of a destination page which will be provided to the
+user. When the user is allowed to get the source URL, the FinalURL will be
+the same as the source URL otherwise the FinalURL will point to so called
 banpage.
 
 ### Testing
 
-In order to test erjik you can manually start it from shell
-using run.sh script and supply test requests on erjik's stdin.
-Answers will be send to erjik's stdout. Do not forget to
-supply RequestID token otherwise erjik will be unable to parse
-incoming request.
+In order to test Erjik you can manually start it from the shell
+and supply test requests on Erjik's stdin. The answers will be send
+to the stdout:
 
-## Advanced administration
-
-After installation there will be a few erjik related tools in
-/usr/sbin directory:
-
-* erjik-hup - makes erjik to reload its configs and reopen
-              log file (useful for log rotation);
-* erjik-ping - tests if erjik alive or not.
-
-* erjik-stop - stops erjik instance. This tool intended only
-              for debug purposes, do not use it unless you
-              know what are you doing;
-* erjik-remsh - creates remote Erlang shell on Erlang node
-              with erjik running. Only for debug purposes.
+    $ echo '1 http://www.github.com/ 10.0.0.1' | ./erjik ./erjik.conf
+    1 http://www.github.com/
+    $ echo '1 http://www.porn.com/ 10.0.0.1' | ./erjik ./erjik.conf
+    1 http://127.0.0.1:8888/porn.html
 
 -----------------------------------------------------------------
 Aleksey Morarash <aleksey.morarash@gmail.com>, 2012
-
