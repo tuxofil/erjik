@@ -38,14 +38,14 @@ compile:
 $(APP): compile
 	zip -j $(APP) ebin/*
 	echo '#!/usr/bin/env escript' > $(APP)
-	echo '%%!-smp' >> $(APP)
+	echo '%%!-smp -kernel inet_dist_use_interface {127,0,0,1}' >> $(APP)
 	cat $(APP).zip >> $(APP)
 	chmod 755 $(APP)
 
+EDOC_OPTS = {application, $(APP)}, {preprocess, true}
 html:
 	sed "s/{{VERSION}}/$(VERSION)/" doc/overview.edoc.in > doc/overview.edoc
-	erl -noinput -eval \
-		'edoc:application($(APP),".",[{application,$(APP)}]),halt()'
+	erl -noinput -eval 'edoc:application($(APP),".",[$(EDOC_OPTS)]),halt()'
 
 eunit:
 	$(MAKE) TEST=y clean compile
