@@ -166,7 +166,7 @@ usage() ->
       [version(), N, N, N, N]),
     halt().
 
-%% @doc Return epv version.
+%% @doc Return Erjik version.
 -spec version() -> iolist().
 version() ->
     case application:load(?MODULE) of
