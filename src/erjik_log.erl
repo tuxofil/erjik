@@ -1,7 +1,9 @@
+%%% @doc
+%%% Logger process
+
 %%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
 %%% @since 7 Mar 2009
 %%% @copyright 2009-2012, Aleksey Morarash
-%%% @doc Logger process
 
 -module(erjik_log).
 
@@ -127,22 +129,19 @@ handle_call(_Request, _From, State) ->
 -spec handle_cast(Request :: any(), State :: #state{}) ->
                          {noreply, NewState :: #state{}}.
 handle_cast(?SIG_RECONFIG, State) ->
+    {ok, ConfigPath} = application:get_env(?CFG_ERJIK_CONFIG),
+    {LogPath, Loglevel} = erjik_config_parser:read_logger_cfg(ConfigPath),
     catch file:close(State#state.handle),
-    Filename =
-        case proplists:get_value(erjik_log, init:get_arguments()) of
-            [[_ | _] = Filename0 | _] -> Filename0;
-            _ ->
-                %% default
-                "./erjik.log"
-        end,
     Handle =
-        case file:open(Filename, [raw, append]) of
-            {ok, Handle0} -> Handle0;
-            _ -> undefined
+        case file:open(LogPath, [raw, append]) of
+            {ok, Handle0} ->
+                Handle0;
+            _ ->
+                undefined
         end,
     {noreply,
      State#state{
-       loglevel = loglevel_to_severity(erjik_cfg:get(?CFG_LOGLEVEL)),
+       loglevel = loglevel_to_severity(Loglevel),
        handle   = Handle
       }};
 handle_cast(_Request, State) ->

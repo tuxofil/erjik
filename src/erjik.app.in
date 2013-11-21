@@ -17,7 +17,8 @@
                   erjik_re,
                   erjik_httpd,
                   erjik_httpd_warden,
-                  erjik_error_logger
+                  erjik_error_logger,
+                  erjik_config_parser
                  ]},
   {registered,   [erjik_log,
                   erjik_cfg,
