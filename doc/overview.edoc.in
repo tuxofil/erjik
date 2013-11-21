@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 
 @author Aleksey Morarash <aleksey.morarash@gmail.com>
-@copyright 2012 Aleksey Morarash
+@copyright 2013 Aleksey Morarash
 @version {{VERSION}}
 @title Welcome to erjik - Squid URL rewriter.
 @doc == Contents ==
@@ -19,121 +19,121 @@
  <li>{@section Building}</li>
  <li>{@section Installing}</li>
  <li>{@section Squid configuration}</li>
+ <li>{@section Erjik configuration}</li>
  <li>{@section Running}</li>
- <li>{@section Advanced administration}</li>
+ <li>{@section Maintainance}</li>
  <li>{@section Miscellaneous}
   <ol>
    <li>{@section Security considerations}</li>
    <li>{@section Configuration file format}</li>
-   <li>{@section Server architecture}</li>
-   <li>{@section TODO list}</li>
+   <li>{@section Erjik architecture}</li>
   </ol>
  </li>
 </ol>
 
 == Summary ==
 
-erjik - is a multithreaded <a href='http://www.squid-cache.org/'>Squid</a>
-URL rewriter written on <a target="top" href="http://www.erlang.org/">Erlang</a>
-programming language.
+Erjik - is a multithreaded [http://www.squid-cache.org/ Squid] URL
+rewriter written on [http://www.erlang.org/ Erlang] programming language.
 
-erjik created with following in mind:
+Erjik created with following in mind:
 <ul>
  <li>multithreaded request processing;</li>
  <li>high tolerance for configuration and runtime errors;</li>
  <li>integration with HTTPD handling redirection pages;</li>
- <li>on-the-fly reconfiguration (without restarting);</li>
+ <li>on-the-fly reconfiguration (without restarting Erjik nor Squid);</li>
 </ul>
 
 == License ==
 
-erjik uses FreeBSD License. You can found full license text on
-<a target="top" href="http://www.freebsd.org/copyright/freebsd-license.html">http://www.freebsd.org/copyright/freebsd-license.html</a>
-or in file LICENSE on the top of erjik sources tree.
+Erjik uses FreeBSD License. You can found full license text on
+[http://www.freebsd.org/copyright/freebsd-license.html online]
+or read one provided in the file LICENSE on the top of Erjik
+source tree.
 
 == Building ==
 
-Erlang must be installed to build and run erjik.
-You always can obtain latest Erlang version on
-<a target="top" href="http://www.erlang.org/download.html">Erlang download page</a>
-or use one provided by your software repository.
+Erlang must be installed to build and run Erjik. You always can obtain
+latest Erlang version on [http://www.erlang.org/download.html Erlang
+download page] or use the one provided by your software repository.
 
-erjik is developed and tested with Erlang R14A but probably
+Erjik is developed and tested with the Erlang R14A but probably
 will work with older Erlang versions.
 
 <code>$ make</code>
 
-on erjik top level directory of sources tree.
-
 == Installing ==
 
-<code>$ make install</code>
-
-on erjik top level directory of sources tree.
+<code>$ sudo make install</code>
 
 == Squid configuration ==
 
 It's more than simple:
 <pre><tt>
-# Specify erjik start script location
-url_rewrite_program /path/to/erjik/dir/run.sh
+# Specify Erjik start sequence:
+url_rewrite_program /usr/sbin/erjik /etc/erjik.conf
 
-# Enable multithreading between Squid and erjik
+# Enable multithreading mode:
 url_rewrite_concurrency 1
 
-# How many instances of erjik will be started.
-# Because of multithreading one will be enough.
+# How many instances of URL rewriters will be started.
+# Erjik is multithreaded so we need only one instance:
 url_rewrite_children 1
 </tt></pre>
 
+== Erjik configuration ==
+
+Erjik reads configuration from the file specified in command line.
+You will find comprehensive explanations for configuration options
+available in the corresponding comments in the file.
+
 == Running ==
 
-Normally erjik must be started by Squid itself. See 'url_rewrite_program'
+Normally Erjik is started by Squid. See 'url_rewrite_program'
 configuration in your squid.conf.
 
-You can test erjik by command "./run.sh" in erjik top level
-directory. erjik will be started as foreground process.
+== Maintainance ==
 
-== Advanced administration ==
+To apply new configurations and reopen log file run:
 
-erjik configuration defined in ./erjik.conf file. Path to it
-specified in './run.sh' script. You can change them if you need.
+<code># erjik --hup /etc/erjik.conf</code>
 
-To tell running server to re-read configuration file and reopen
-log file (needed to logrotate), run './hup.sh' script.
+To check if Erjik is alive or not, run:
 
-To check if server is alive, run './ping.sh' script.
+<code># erjik --ping /etc/erjik.conf</code>
 
 == Miscellaneous ==
 
 === Security considerations ===
 
 <ol>
- <li>Do not run erjik under superuser privileges!</li>
- <li>Be aware of launching erjik on host without firewall
-   configured (or protected by another firewall) because
-   Erlang nature permits to connect to Erlang node (found via
-   epmd portmapper) from any host at your network. Such
-   connection will allow execute ANY code with UID of erjik
-   server process.</li>
+ <li>Set 'cookie' configuration parameter to something hard to guess.
+     Knowing the cookie provides a way to connect to the running
+     Erjik instance and execute ANY code with effective user of
+     the Erjik instance.</li>
+ <li>Erjik's installation procedure knows nothing about your
+     system so permissions for /etc/erjik.conf is 0644 by default.
+     According to previous thesis, you need to restrict read access
+     to the configuration file only to user which will be used to
+     run Squid.</li>
 </ol>
 
 === Configuration file format ===
 
 Empty lines and lines with first meaning character '#' (comments)
 will be skipped. Comments can take only whole line. You can't
-comment only tail of line with configuration parameter.
+comment the tail of the line.
 
 Configuration parameter value definition must look like key-value
 pair, separated by one or more spaces or tabs.
 
 Details for erjik existing configuration parameters you can
-found in ./erjik.conf configuration file in top directory of
-erjik source tree.
+found in the /etc/erjik.conf configuration file or in the erjik.conf
+example configuration file in the top of Erjik source tree.
 
-=== Server architecture ===
+=== Erjik architecture ===
 
-erjik application supervision tree:
+Erjik application supervision tree:
 
 <pre><tt>
             erjik_app
@@ -157,8 +157,5 @@ erjik application supervision tree:
         connection handler
 </tt></pre><hr/>
 
-=== TODO list ===
-
 <pre>
 </pre>
-
