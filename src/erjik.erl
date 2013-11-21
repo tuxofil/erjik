@@ -25,6 +25,8 @@
 %% --------------------------------------------------------------------
 
 -spec main(Args :: [string()]) -> no_return().
+main([]) ->
+    usage();
 main(Args) ->
     case lists:member("-h", Args) orelse lists:member("--help", Args) of
         true ->
@@ -51,8 +53,12 @@ main(Args) ->
         true ->
             MyID = list_to_atom(atom_to_list(InstanceID) ++ "_hupper"),
             ok = start_net_kernel(MyID, Cookie),
-            pong = net_adm:ping(ErjikNode = node_fullname(InstanceID)),
-            ok = rpc:call(ErjikNode, erjik_cfg, hup, []);
+            case net_adm:ping(ErjikNode = node_fullname(InstanceID)) of
+                pong ->
+                    ok = rpc:call(ErjikNode, erjik_cfg, hup, []);
+                pang ->
+                    err("Erjik is not alive", [])
+            end;
         false ->
             ok = start_net_kernel(InstanceID, Cookie),
             ok = application:load(?MODULE),
@@ -93,6 +99,10 @@ parse_args(["--sasl" | Tail], Acc) ->
     parse_args(Tail, [sasl | Acc]);
 parse_args(["--hup" | Tail], Acc) ->
     parse_args(Tail, [hup | Acc]);
+parse_args(["--", ConfigFilePath], Acc) ->
+    [{config, ConfigFilePath} | Acc];
+parse_args(["-" ++ _ = Option | _Tail], _Acc) ->
+    err("Unrecognized option: ~p", [Option]);
 parse_args([ConfigFilePath], Acc) ->
     [{config, ConfigFilePath} | Acc];
 parse_args(Other, _Acc) ->
