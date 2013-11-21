@@ -25,13 +25,6 @@
 -spec main(Args :: [string()]) -> no_return().
 main(Args) ->
     IsHupMode = lists:member("--hup", Args),
-    IsPingMode = lists:member("--ping", Args),
-    case IsHupMode andalso IsPingMode of
-        true ->
-            err("--hup and --ping options are mutually exclusive", []);
-        false ->
-            ok
-    end,
     ok = load_app(),
     ok = parse_args(Args),
     ErjikNodeName =
@@ -44,8 +37,6 @@ main(Args) ->
     _IgnoredStdout = os:cmd("epmd -daemon"),
     if IsHupMode ->
             do_hup(ErjikNodeName);
-       IsPingMode ->
-            do_ping(ErjikNodeName);
        true ->
             do_start(ErjikNodeName)
     end.
@@ -67,19 +58,6 @@ shutdown(ExitCode) ->
 do_hup(ErjikNodeName) ->
     ok = start_net_kernel(erjik_hupper),
     ok = call(ErjikNodeName, erjik_cfg, hup, []).
-
-%% @doc
--spec do_ping(ErjikNodeName :: atom()) -> ok | no_return().
-do_ping(ErjikNodeName) ->
-    ok = start_net_kernel(erjik_pinger),
-    try
-        Apps = call(ErjikNodeName, application, which_applications, []),
-        [_ | _] = [?MODULE || {?MODULE, _, _} <- Apps],
-        ok
-    catch
-        _:_ ->
-            halt(1)
-    end.
 
 %% @doc
 -spec do_start(ErjikNodeName :: atom()) -> no_return().
@@ -128,9 +106,7 @@ usage() ->
       "  ~s [--sasl|--id ID] /path/to/config~n"
       "\tStart Erjik;~n"
       "  ~s [--id ID] --hup~n"
-      "\tSend reconfig signal to running Erjik instance;~n"
-      "  ~s [--id ID] --ping~n"
-      "\tPing running Erjik instance.~n"
+      "\tSend reconfig signal to running Erjik instance.~n"
       "~n"
       "Options description:~n"
       "\t--sasl      - start SASL (only for debugging);~n"
@@ -138,7 +114,7 @@ usage() ->
       "\t              you want to run several instances of the program~n"
       "\t              at the same time.~n"
       "~n",
-      [version(), N, N, N, N]),
+      [version(), N, N, N]),
     halt().
 
 %% @doc Parse and process command line options and arguments.
@@ -158,9 +134,6 @@ parse_args(["--sasl" | Tail]) ->
     ensure_app_started(sasl),
     parse_args(Tail);
 parse_args(["--hup" | Tail]) ->
-    put(no_args_needed, true),
-    parse_args(Tail);
-parse_args(["--ping" | Tail]) ->
     put(no_args_needed, true),
     parse_args(Tail);
 parse_args(["--id", DaemonID | Tail]) ->
