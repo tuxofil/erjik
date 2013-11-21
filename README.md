@@ -43,7 +43,35 @@ will work with older Erlang versions.
 
 ### Staged installation
 
-Use DESTDIR environment variable.
+Use DESTDIR environment variable:
+
+    $ DESTDIR=rootfs make install
+    $ tree rootfs
+    rootfs/
+    ├── etc
+    │   └── erjik.conf
+    ├── usr
+    │   └── sbin
+    │       └── erjik
+    └── var
+        └── lib
+            └── erjik
+                ├── lists
+                │   ├── domains
+                │   │   ├── good
+                │   │   └── porn
+                │   └── regexps
+                │       ├── attraction
+                │       ├── audio-video
+                │       ├── fileserver
+                │       ├── good
+                │       ├── onlinegames
+                │       ├── porn
+                │       └── security
+                └── www
+                    ├── denied-by-ip.html
+                    ├── denied-by-url.html
+                    └── porn.html
 
 ### Uninstallation
 

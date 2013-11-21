@@ -78,7 +78,7 @@ clean:
 ## ----------------------------------------------------------------------
 ## installation/deinstallation section
 
-install: $(APP)
+install:
 	install -m 755 -d $(DESTDIR)/etc
 	install -m 644 erjik.conf $(DESTDIR)/etc
 	install -m 755 -d $(DESTDIR)/usr/sbin
@@ -88,7 +88,7 @@ install: $(APP)
 	install -m 755 -d $(DESTDIR)/var/lib/erjik/lists/regexps
 	install -m 644 pkg.d/lists/regexps/* $(DESTDIR)/var/lib/erjik/lists/regexps
 	install -m 755 -d $(DESTDIR)/var/lib/erjik/www
-	install -m 644 pkg.d/www-root/* $(DESTDIR)/var/lib/erjik/www
+	install -m 644 pkg.d/www/* $(DESTDIR)/var/lib/erjik/www
 
 uninstall:
 	rm -rf -- $(DESTDIR)/etc/erjik.conf \
