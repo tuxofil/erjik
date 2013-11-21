@@ -18,7 +18,7 @@
 
 -type parsed_args() :: [parsed_arg()].
 
--type parsed_arg() :: sasl | hup | {config, file:filename()}.
+-type parsed_arg() :: sasl | hup | ping | {config, file:filename()}.
 
 %% --------------------------------------------------------------------
 %% API functions
@@ -34,42 +34,73 @@ main(Args) ->
         false ->
             nop
     end,
-    %% use non-default TCP port number for Erlang port mapper
-    %% to avoid interfere with normal Erlang nodes running on the host.
-    true = os:putenv("ERL_EPMD_PORT", "4370"),
     %% bind Erlang port mapper only to loopback network interface
     _IgnoredStdout = os:cmd("epmd -address 127.0.0.1 -daemon"),
     %% parse and process command line arguments
     ParsedArgs = parse_args(Args),
+    case proplists:is_defined(hup, ParsedArgs) andalso
+        proplists:is_defined(ping, ParsedArgs) of
+        true ->
+            err("--ping and --hup options are mutually exclusive", []);
+        false ->
+            nop
+    end,
     case proplists:is_defined(sasl, ParsedArgs) of
         true ->
             ok = application:start(sasl, permanent);
         false ->
             nop
     end,
-    ConfigFilePath = proplists:get_value(config, ParsedArgs),
-    {InstanceID, Cookie} = erjik_config_parser:read_daemon_cfg(ConfigFilePath),
+    ConfigPath = proplists:get_value(config, ParsedArgs),
+    {InstanceID, Cookie} = erjik_config_parser:read_daemon_cfg(ConfigPath),
     case proplists:is_defined(hup, ParsedArgs) of
         true ->
-            MyID = list_to_atom(atom_to_list(InstanceID) ++ "_hupper"),
-            ok = start_net_kernel(MyID, Cookie),
-            case net_adm:ping(ErjikNode = node_fullname(InstanceID)) of
-                pong ->
-                    ok = rpc:call(ErjikNode, erjik_cfg, hup, []);
-                pang ->
-                    err("Erjik is not alive", [])
-            end;
+            do_hup(InstanceID, Cookie);
         false ->
-            ok = start_net_kernel(InstanceID, Cookie),
-            ok = application:load(?MODULE),
-            ok = application:set_env(?MODULE, ?CFG_ERJIK_CONFIG, ConfigFilePath),
-            ok = application:start(?MODULE, permanent),
-            timer:sleep(infinity)
-    end.
+            nop
+    end,
+    case proplists:is_defined(ping, ParsedArgs) of
+        true ->
+            do_ping(InstanceID, Cookie);
+        false ->
+            nop
+    end,
+    ok = start_net_kernel(InstanceID, Cookie),
+    ok = application:load(?MODULE),
+    ok = application:set_env(?MODULE, ?CFG_ERJIK_CONFIG, ConfigPath),
+    ok = application:start(?MODULE, permanent),
+    timer:sleep(infinity).
 
 %% --------------------------------------------------------------------
 %% Internal functions
 %% --------------------------------------------------------------------
+
+%% @doc Send reconfig signal to the Erjik instance.
+-spec do_hup(InstanceID :: atom(), Cookie :: atom()) -> no_return().
+do_hup(InstanceID, Cookie) ->
+    MyID = list_to_atom(atom_to_list(InstanceID) ++ "_hupper"),
+    ok = start_net_kernel(MyID, Cookie),
+    case net_adm:ping(ErjikNode = node_fullname(InstanceID)) of
+        pong ->
+            ok = rpc:call(ErjikNode, erjik_cfg, hup, []),
+            halt(0);
+        pang ->
+            err("Erjik is not alive", [])
+    end.
+
+%% @doc Check the Erjik instance.
+-spec do_ping(InstanceID :: atom(), Cookie :: atom()) -> no_return().
+do_ping(InstanceID, Cookie) ->
+    MyID = list_to_atom(atom_to_list(InstanceID) ++ "_pinger"),
+    ok = start_net_kernel(MyID, Cookie),
+    case net_adm:ping(node_fullname(InstanceID)) of
+        pong ->
+            ok = io:format("Running~n"),
+            halt(0);
+        pang ->
+            ok = io:format("Not running~n"),
+            halt(1)
+    end.
 
 %% @doc
 -spec start_net_kernel(NodeShortName :: atom(), Cookie :: atom()) ->
@@ -99,6 +130,8 @@ parse_args(["--sasl" | Tail], Acc) ->
     parse_args(Tail, [sasl | Acc]);
 parse_args(["--hup" | Tail], Acc) ->
     parse_args(Tail, [hup | Acc]);
+parse_args(["--ping" | Tail], Acc) ->
+    parse_args(Tail, [ping | Acc]);
 parse_args(["--", ConfigFilePath], Acc) ->
     [{config, ConfigFilePath} | Acc];
 parse_args(["-" ++ _ = Option | _Tail], _Acc) ->
@@ -126,8 +159,10 @@ usage() ->
       "  ~s /path/to/config~n"
       "\tStart Erjik;~n"
       "  ~s --hup /path/to/config~n"
-      "\tSend reconfig signal to running Erjik instance.~n",
-      [version(), N, N, N]),
+      "\tSend reconfig signal to running Erjik instance;~n"
+      "  ~s --ping /path/to/config~n"
+      "\tCheck if Erjik instance is alive or not.~n",
+      [version(), N, N, N, N]),
     halt().
 
 %% @doc Return epv version.
