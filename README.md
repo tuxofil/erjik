@@ -59,6 +59,11 @@ Add this lines to your squid.conf:
     url_rewrite_concurrency 1
     url_rewrite_children 1
 
+## Configuring Erjik
+
+See comments in the /etc/erjik.conf file for description of
+available configuration parameters.
+
 ## Maintainance
 
 Normally Erjik is started by Squid so you don't need to
