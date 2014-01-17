@@ -52,26 +52,27 @@ Use DESTDIR environment variable:
     │   └── erjik.conf
     ├── usr
     │   └── sbin
-    │       └── erjik
+    │       ├── erjik
+    │       └── erjik-bin
     └── var
-        └── lib
-            └── erjik
-                ├── lists
-                │   ├── domains
-                │   │   ├── good
-                │   │   └── porn
-                │   └── regexps
-                │       ├── attraction
-                │       ├── audio-video
-                │       ├── fileserver
-                │       ├── good
-                │       ├── onlinegames
-                │       ├── porn
-                │       └── security
-                └── www
-                    ├── denied-by-ip.html
-                    ├── denied-by-url.html
-                    └── porn.html
+        ├── lib
+        │   └── erjik
+        │       ├── domains
+        │       │   ├── good
+        │       │   └── porn
+        │       ├── regexps
+        │       │   ├── attraction
+        │       │   ├── audio-video
+        │       │   ├── fileserver
+        │       │   ├── good
+        │       │   ├── onlinegames
+        │       │   ├── porn
+        │       │   └── security
+        │       └── www
+        │           ├── denied-by-ip.html
+        │           ├── denied-by-url.html
+        │           └── porn.html
+        └── log
 
 ### Uninstallation
 
@@ -83,7 +84,7 @@ To completely remove the Erjik from the system type:
 
 Add this lines to your squid.conf:
 
-    url_rewrite_program /usr/sbin/erjik /etc/erjik.conf
+    url_rewrite_program /usr/sbin/erjik
     url_rewrite_concurrency 1
     url_rewrite_children 1
 
@@ -99,11 +100,11 @@ launch it manually.
 
 Apply new configuration, reopen log file:
 
-    $ /usr/sbin/erjik --hup /etc/erjik.conf
+    $ /usr/sbin/erjik-bin --hup /etc/erjik.conf
 
 Check if Erjik is alive or not:
 
-    $ /usr/sbin/erjik --ping /etc/erjik.conf
+    $ /usr/sbin/erjik-bin --ping /etc/erjik.conf
 
 ## Testing
 
