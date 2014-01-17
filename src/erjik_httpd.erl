@@ -45,32 +45,12 @@
             WwwRoot :: file:filename()) ->
                    {ok, Pid :: pid()} | {error, Reason :: any()}.
 start(IP, Port, WwwRoot) ->
-    try
-        IpFamily = erjik_lib:ip_family(IP),
-        Result =
-            inets:start(
-              httpd,
-              [{port, Port},
-               {bind_address,
-                if IP == {0,0,0,0} -> any;
-                   IP == {0,0,0,0,0,0,0,0} -> any;
-                   true -> IP
-                end},
-               {server_name, "erjik"},
-               {server_root, "."},
-               {document_root, WwwRoot},
-               {ipfamily, IpFamily},
-               {modules, [?MODULE]}
-              ], stand_alone),
-        case Result of
-            {ok, Pid} = Ok when is_pid(Pid) ->
-                Ok;
-            Other ->
-                {error, {bad_return, Other}}
-        end
-    catch
-        Type:Reason ->
-            {error, {Type, Reason, erlang:get_stacktrace()}}
+    case filelib:is_dir(WwwRoot) of
+        true ->
+            do_start(erjik_lib:ip_family(IP), IP, Port, WwwRoot);
+        false ->
+            ?logerr("WWW root directory ~9999p is not exist", [WwwRoot]),
+            {error, {not_exist, WwwRoot}}
     end.
 
 %% ----------------------------------------------------------------------
@@ -155,3 +135,32 @@ split4pathNquery([H | Tail], Path) ->
 split4pathNquery(_, Path) ->
     {lists:reverse(Path), []}.
 
+%% @doc
+-spec do_start(IpFamily :: inet:address_family(),
+               IP :: inet:ip_address(),
+               Port :: inet:port_number(),
+               WwwRoot :: file:filename()) ->
+                      {ok, Pid :: pid()} | {error, Reason :: any()}.
+do_start(IpFamily, IP, Port, WwwRoot) ->
+    try inets:start(
+          httpd,
+          [{port, Port},
+           {bind_address,
+            if IP == {0,0,0,0} -> any;
+               IP == {0,0,0,0,0,0,0,0} -> any;
+               true -> IP
+            end},
+           {server_name, "erjik"},
+           {server_root, "."},
+           {document_root, WwwRoot},
+           {ipfamily, IpFamily},
+           {modules, [?MODULE]}
+          ], stand_alone) of
+        {ok, Pid} = Ok when is_pid(Pid) ->
+            Ok;
+        Other ->
+            {error, {bad_return, Other}}
+    catch
+        Type:Reason ->
+            {error, {Type, Reason, erlang:get_stacktrace()}}
+    end.
