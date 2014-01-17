@@ -278,19 +278,22 @@ strip_([Char | Tail] = String, Chars) ->
             String
     end.
 
-%% @doc "Converts" string to atom only if result atom contained
-%%      in list, supplied as second argument.
+%% @doc "Convert" string to an atom only if the result atom
+%% is present in the list, supplied as the second argument.
 -spec list_to_atom(String :: string(), Atoms :: [atom()]) ->
                           {ok, Atom :: atom()} | error.
-list_to_atom(_, []) -> error;
+list_to_atom(_, []) ->
+    error;
 list_to_atom(String, [Atom | Tail]) -> 
     case atom_to_list(Atom) of
-        String -> {ok, Atom};
-        _ -> list_to_atom(String, Tail)
+        String ->
+            {ok, Atom};
+        _ ->
+            list_to_atom(String, Tail)
     end.
 
-%% @doc Splits text to lines. Result lines will be stripped
-%%      of newline characters.
+%% @doc Split the text to lines. Result lines will be stripped
+%% of newline characters.
 -spec split_lines(String :: string()) -> Lines :: [string()].
 split_lines(String) ->
     split_lines(String, [], []).
@@ -307,11 +310,10 @@ split_lines("\r" ++ Tail, Line, Lines) ->
 split_lines([C | Tail], Line, Lines) ->
     split_lines(Tail, [C | Line], Lines).
 
-%% @doc Splits line to key and value. First token separated from
-%%      others with space characters, will be returned as key in
-%%      lower case (so, keys are case insensitive); rest of
-%%      line will be returned as value. Character case of value
-%%      string will be preserved.
+%% @doc Split the line to a key and a value. The first token separated
+%% from the others with space characters, will be returned as the key in
+%% lower case (so, keys are case insensitive); rest of the line will be
+%% returned as the value. Character case of the value will be preserved.
 -spec split_to_key_value(String :: string()) ->
                                 {Key :: string(), Value :: string()}.
 split_to_key_value(String) ->

@@ -139,12 +139,13 @@ remove(_ConfigDB) ->
 %% Internal functions
 %% --------------------------------------------------------------------
 
-%% @doc Splits request URI to Path and Query strings (delimited by '?').
+%% @doc Split the request URI to a Path and a Query strings (delimited by '?').
 -spec split4pathNquery(RequestURI :: string()) ->
                               {Path :: string(), Query :: string()}.
 split4pathNquery(RequestURI) ->
     split4pathNquery(RequestURI, []).
 
+%% @doc
 -spec split4pathNquery(String :: string(), Acc :: string()) ->
                               {Path :: string(), Query :: string()}.
 split4pathNquery([$? | Tail], Path) ->
