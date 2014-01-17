@@ -82,8 +82,8 @@ install:
 	install -m 755 -d $(DESTDIR)/etc
 	install -m 644 pkg.d/erjik.conf $(DESTDIR)/etc
 	install -m 755 -d $(DESTDIR)/usr/sbin
-	install -m 755 erjik $(DESTDIR)/usr/sbin/erjik-bin
-	install -m 755 pkg.d/wrapper.sh $(DESTDIR)/usr/sbin/erjik
+	install -m 755 erjik $(DESTDIR)/usr/sbin
+	install -m 755 pkg.d/wrapper.sh $(DESTDIR)/usr/sbin/erjik-wrapper
 	install -m 755 -d $(DESTDIR)/var/lib/erjik/domains
 	install -m 644 pkg.d/lists/domains/* $(DESTDIR)/var/lib/erjik/domains
 	install -m 755 -d $(DESTDIR)/var/lib/erjik/regexps

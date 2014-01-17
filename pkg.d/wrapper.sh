@@ -9,4 +9,4 @@
 ## cannot set HOME to '/'.
 
 export HOME=/var/log/erjik
-exec /usr/sbin/erjik-bin /etc/erjik.conf
+exec /usr/sbin/erjik /etc/erjik.conf

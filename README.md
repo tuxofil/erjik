@@ -53,7 +53,7 @@ Use DESTDIR environment variable:
     ├── usr
     │   └── sbin
     │       ├── erjik
-    │       └── erjik-bin
+    │       └── erjik-wrapper
     └── var
         ├── lib
         │   └── erjik
@@ -84,7 +84,7 @@ To completely remove the Erjik from the system type:
 
 Add this lines to your squid.conf:
 
-    url_rewrite_program /usr/sbin/erjik
+    url_rewrite_program /usr/sbin/erjik-wrapper
     url_rewrite_concurrency 1
     url_rewrite_children 1
 
@@ -100,11 +100,11 @@ launch it manually.
 
 Apply new configuration, reopen log file:
 
-    $ /usr/sbin/erjik-bin --hup /etc/erjik.conf
+    $ /usr/sbin/erjik --hup /etc/erjik.conf
 
 Check if Erjik is alive or not:
 
-    $ /usr/sbin/erjik-bin --ping /etc/erjik.conf
+    $ /usr/sbin/erjik --ping /etc/erjik.conf
 
 ## Testing
 
