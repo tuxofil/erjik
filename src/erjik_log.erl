@@ -163,7 +163,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %% ----------------------------------------------------------------------
 
--spec loglevel_to_severity(erjik_cfg:loglevel()) -> 0 | severity().
+-spec loglevel_to_severity(erjik_config_parser:loglevel()) -> 0 | severity().
 loglevel_to_severity(?LOGLEVEL_NONE) -> 0;
 loglevel_to_severity(?LOGLEVEL_ERROR) -> 1;
 loglevel_to_severity(?LOGLEVEL_WARNING) -> 2;
