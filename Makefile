@@ -80,15 +80,16 @@ clean:
 
 install:
 	install -m 755 -d $(DESTDIR)/etc
-	install -m 644 erjik.conf $(DESTDIR)/etc
+	install -m 644 pkg.d/erjik.conf $(DESTDIR)/etc
 	install -m 755 -d $(DESTDIR)/usr/sbin
 	install -m 755 erjik $(DESTDIR)/usr/sbin
-	install -m 755 -d $(DESTDIR)/var/lib/erjik/lists/domains
-	install -m 644 pkg.d/lists/domains/* $(DESTDIR)/var/lib/erjik/lists/domains
-	install -m 755 -d $(DESTDIR)/var/lib/erjik/lists/regexps
-	install -m 644 pkg.d/lists/regexps/* $(DESTDIR)/var/lib/erjik/lists/regexps
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/domains
+	install -m 644 pkg.d/lists/domains/* $(DESTDIR)/var/lib/erjik/domains
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/regexps
+	install -m 644 pkg.d/lists/regexps/* $(DESTDIR)/var/lib/erjik/regexps
 	install -m 755 -d $(DESTDIR)/var/lib/erjik/www
 	install -m 644 pkg.d/www/* $(DESTDIR)/var/lib/erjik/www
+	install -m 775 -d $(DESTDIR)/var/log/erjik
 
 uninstall:
 	rm -rf -- $(DESTDIR)/etc/erjik.conf \
