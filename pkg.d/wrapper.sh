@@ -8,5 +8,7 @@
 ## whole startup process will fail. Sad but true. Thats why we
 ## cannot set HOME to '/'.
 
+set -e
 export HOME=/var/log/erjik
-exec /usr/lib/erjik/erjik /etc/erjik.conf
+cd $HOME
+exec /usr/lib/erjik/erjik "$@"
