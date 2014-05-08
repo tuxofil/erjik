@@ -2,7 +2,7 @@ APP = erjik
 
 VERSION = $(shell cat version)
 
-.PHONY: all compile doc clean eunit dialyze all-tests install uninstall
+.PHONY: all compile html clean eunit dialyze all-tests install uninstall
 
 all: $(APP)
 
