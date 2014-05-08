@@ -4,8 +4,8 @@
 
 * multithreaded request processing;
 * high tolerance for configuration and runtime errors;
-* integration with HTTPD handling redirection pages;
-* on-the-fly reconfiguration (without Squid restarting).
+* built-in HTTPD to serve redirection pages;
+* on-the-fly reconfiguration (without Squid restart).
 
 ## License
 
