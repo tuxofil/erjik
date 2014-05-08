@@ -1,0 +1,52 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# This has to be exported to make some magic below work.
+export DH_OPTIONS
+
+%:
+	dh $@
+
+# Build the Erjik binary and docs.
+# Also all tests available will run here BEFORE the build because
+# during tests 'clean' target is called (debhelper runs
+# the dh_auto_test target after the dh_auto_build target).
+override_dh_auto_build:
+#	$(MAKE) all-tests
+	$(MAKE) clean
+	$(MAKE) erjik
+	$(MAKE) html
+
+# Do not run any tests after the build
+# (see override_dh_auto_build comment for details)
+override_dh_auto_test:
+
+# Disable use of 'install' target of the main Makefile of the project
+override_dh_auto_install:
+
+# Implement staged installation
+DESTDIR = debian/erjik
+DOC_DESTDIR = debian/erjik-doc
+override_dh_install:
+	install -m 755 -d $(DESTDIR)/etc
+	install -m 640 pkg.d/erjik.conf $(DESTDIR)/etc
+	install -m 755 -d $(DESTDIR)/etc/sudoers.d
+	install -m 440 pkg.d/sudoers $(DESTDIR)/etc/sudoers.d/erjik
+	install -m 755 -d $(DESTDIR)/usr/lib/erjik
+	install -m 755 erjik $(DESTDIR)/usr/lib/erjik
+	install -m 755 pkg.d/wrapper.sh $(DESTDIR)/usr/lib/erjik/erjik-wrapper
+	install -m 755 -d $(DESTDIR)/usr/bin
+	install -m 755 pkg.d/erjik-run.sh $(DESTDIR)/usr/bin/erjik-run
+	install -m 755 pkg.d/erjik-hup.sh $(DESTDIR)/usr/bin/erjik-hup
+	install -m 755 pkg.d/erjik-ping.sh $(DESTDIR)/usr/bin/erjik-ping
+	install -m 755 pkg.d/erjik-remsh.sh $(DESTDIR)/usr/bin/erjik-remsh
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/domains
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/regexps
+	install -m 644 pkg.d/lists/domains/* $(DESTDIR)/var/lib/erjik/domains
+	install -m 644 pkg.d/lists/regexps/* $(DESTDIR)/var/lib/erjik/regexps
+	install -m 755 -d $(DESTDIR)/var/lib/erjik/www
+	install -m 644 pkg.d/www/* $(DESTDIR)/var/lib/erjik/www
+	install -m 755 -d $(DESTDIR)/var/log/erjik
+	install -m 755 -d $(DOC_DESTDIR)/usr/share/doc/erjik-doc
+	install -m 644 doc/*.html doc/*.css doc/*.png \
+	    $(DOC_DESTDIR)/usr/share/doc/erjik-doc

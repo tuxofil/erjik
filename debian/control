@@ -1,0 +1,27 @@
+Source: erjik
+Section: web
+Priority: extra
+Maintainer: Aleksey Morarash <aleksey.morarash@gmail.com>
+Build-Depends: debhelper (>= 8.0.0), erlang-base, erlang-dev, erlang-tools,
+ erlang-edoc, erlang-eunit, erlang-dialyzer, zip
+Standards-Version: 3.9.3
+Homepage: https://github.com/tuxofil/erjik
+Vcs-Browser: https://github.com/tuxofil/erjik
+Vcs-Git: https://github.com/tuxofil/erjik.git
+
+Package: erjik
+Architecture: all
+Enhances: squid, squid3
+Depends: erlang-base, erlang-inets, mime-support, sudo
+Description: multithreaded URL rewriter for the Squid HTTP proxy
+ Goals:
+ .
+ - multithreaded request processing;
+ - high tolerance for configuration and runtime errors;
+ - built-in HTTPD to serve redirection pages;
+ - on-the-fly reconfiguration (without Squid restart).
+
+Package: erjik-doc
+Architecture: all
+Description: Erjik developer documentation.
+ Contains generated HTML documentation for the Erjik source code.
