@@ -74,6 +74,7 @@ Use DESTDIR environment variable:
         │           ├── denied-by-url.html
         │           └── porn.html
         └── log
+            └── erjik
 
 ### Uninstallation
 
